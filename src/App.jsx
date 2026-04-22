@@ -11,6 +11,7 @@ import {
   Plus, 
   Calendar, 
   ChevronRight,
+  ChevronDown,
   AlertCircle,
   CheckCircle2,
   XCircle,
@@ -24,6 +25,8 @@ import {
   X,
   Trash2,
   MessageSquare,
+  MessageCircle,
+  Phone,
   Send,
   MoreVertical as More,
   Briefcase,
@@ -47,7 +50,15 @@ import Loader from './components/ui/loader-4';
 // Initial leads removed for cleanup
 
 
-const STAGES = ['DNP1', 'DNP2', 'DNP3', 'DNP4', 'DNP5'];
+const FUNNEL_STATUSES = [
+  'Moved to Funnel',
+  'Demo Booked', 
+  'Proposal Call Booked', 
+  'Proposal Call booked- No show', 
+  'Proposal Call Booked- Meeting done', 
+  'Proposal Call booked- Potential Pipeline- Stopped responding',
+  'Demo Booked - No show'
+];
 
 const LEAD_STATUSES = [
   'New',
@@ -83,6 +94,47 @@ const META_STATUSES = [
 
 // --- SUB-COMPONENTS ---
 
+const WhatsappLogo = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.431 5.63 1.432h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+  </svg>
+);
+
+const PhoneLogo = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.27-2.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
+const DnpLogo = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+    <circle cx="16.5" cy="16.5" r="3.5" />
+    <polyline points="16.5 14.5 16.5 16.5 18 17.5" />
+  </svg>
+);
+const JunkLogo = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+
+const NeverRespondedLogo = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
+
+
+
 const Badge = ({ status }) => {
   const styles = {
     'Converted': 'bg-brand-primary/20 text-brand-primary border-brand-primary/30',
@@ -92,6 +144,10 @@ const Badge = ({ status }) => {
     'Not Interested': 'bg-rose-500/10 text-rose-500 border-rose-500/30',
     'not interested': 'bg-rose-500/10 text-rose-500 border-rose-500/30',
     'Junk': 'bg-rose-500 text-white border-rose-600 shadow-md shadow-rose-500/20',
+    'Demo Booked': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-black',
+    'Proposal Call Booked': 'bg-indigo-500 text-white border-indigo-600 shadow-lg shadow-indigo-500/30 font-black tracking-tight',
+    'Proposal Call Booked- Meeting done': 'bg-teal-500 text-white border-teal-600 shadow-md shadow-teal-500/20',
+    'Moved to Funnel': 'bg-[#9fd48a]/20 text-[#9fd48a] border-[#9fd48a]/30',
   };
 
   return (
@@ -100,6 +156,155 @@ const Badge = ({ status }) => {
     </span>
   );
 };
+
+const LeadStatusTracker = ({ lead, compact = false }) => {
+  const statuses = [
+    'Intro-Whatsapp',
+    'Intro Done - Phone Call',
+    'Intro Done - Whatsapp',
+    'DNP 1',
+    'DNP 2',
+    'DNP 3',
+    'DNP 4',
+    'Never Responded',
+    'Junk'
+  ];
+
+  const rd = lead.rawData || {};
+  
+  const getStatusState = (s) => {
+    const val = (rd[s] || rd[s.toLowerCase()] || rd[s.toUpperCase()] || rd[s.replace(/-/g, ' ')] || '')?.toString() || '';
+    const isDone = val.toLowerCase().includes('done');
+    const comment = rd[`${s} comment`] || rd[`${s.toLowerCase()} comment`] || rd[`${s} Comment`] || '';
+    return { isDone, comment };
+  };
+
+  const nr = getStatusState('Never Responded').isDone;
+  const junk = getStatusState('Junk').isDone;
+  const isTerminal = nr || junk;
+
+  return (
+    <div className={`flex flex-col ${compact ? 'gap-1' : 'gap-4'} w-full overflow-hidden`}>
+      <style>{`
+        @keyframes breathing-inner {
+          0%, 100% { filter: brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); transform: scale(1); }
+          50% { filter: brightness(1.5) drop-shadow(0 0 8px rgba(255,255,255,0.8)); transform: scale(1.08); }
+        }
+        @keyframes flow-line-new {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .inner-glow {
+          box-shadow: inset 0 0 15px rgba(255,255,255,0.4);
+        }
+        .flow-effect {
+          background: linear-gradient(90deg, #10b981 0%, #ffffff 50%, #10b981 100%);
+          background-size: 200% auto;
+          animation: flow-line-new 3s linear infinite;
+        }
+      `}</style>
+
+      {/* Row 1: Circles and Lines */}
+      <div className={`flex items-center ${compact ? 'justify-start' : 'justify-center'} w-full`}>
+        {statuses.map((s, idx) => {
+          const { isDone, comment } = getStatusState(s);
+          const isCrossed = isTerminal && s !== 'Never Responded' && s !== 'Junk';
+          const isDnp = s.includes('DNP');
+          const isActive = isDone && !isCrossed;
+          
+          const prevStatuses = statuses.slice(0, idx);
+          const allPrevDone = prevStatuses.every(ps => getStatusState(ps).isDone);
+          const isCurrentStage = !isDone && allPrevDone && !isTerminal;
+
+          let colorClass = 'bg-slate-800/40 border-slate-700/50 text-slate-600';
+          if (isActive) {
+            colorClass = (s === 'Never Responded' || s === 'Junk') 
+              ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]' 
+              : 'bg-[#065f46] border-emerald-500/50 text-white shadow-[0_0_20px_rgba(16,185,129,0.2)]';
+          } else if (isCrossed) {
+            colorClass = 'bg-rose-500/5 border-rose-500/10 text-rose-500/20';
+          } else if (isCurrentStage) {
+            colorClass = 'bg-emerald-500/20 border-emerald-500/40 text-white';
+          }
+
+          return (
+            <React.Fragment key={s}>
+              {idx > 0 && (
+                <div className={`h-[2px] ${compact ? 'w-2' : 'flex-1 min-w-[25px] max-w-[50px]'} relative overflow-hidden bg-slate-800/80`}>
+                  {isDone && !isCrossed && (
+                    <div className="absolute inset-0 flow-effect"></div>
+                  )}
+                </div>
+              )}
+              <div 
+                className={`
+                  ${compact ? 'w-6 h-6' : 'w-12 h-12'} 
+                  rounded-full flex items-center justify-center border-2 shrink-0 relative group
+                  ${colorClass}
+                  ${(isActive || isCurrentStage) ? 'inner-glow' : ''}
+                `}
+              >
+                <div 
+                  className={(isActive || isCurrentStage) ? 'animate-[breathing-inner_3s_ease-in-out_infinite]' : ''}
+                  style={{ animationDelay: `${idx * 200}ms` }}
+                >
+                  {isCrossed ? (
+                    <X size={compact ? 12 : 20} strokeWidth={3} />
+                  ) : (isDone || isCurrentStage) ? (
+                    s.includes('Whatsapp') ? <WhatsappLogo size={compact ? 12 : 24} color="white" /> :
+                    s.includes('Phone') ? <PhoneLogo size={compact ? 12 : 24} color="white" /> :
+                    isDnp ? <DnpLogo size={compact ? 12 : 24} color="white" /> :
+                    s === 'Junk' ? <JunkLogo size={compact ? 12 : 24} color="white" /> :
+                    s === 'Never Responded' ? <NeverRespondedLogo size={compact ? 12 : 24} color="white" /> :
+                    <CheckCircle2 size={compact ? 12 : 24} strokeWidth={3} />
+                  ) : (
+                    <div className={`rounded-full ${compact ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} bg-slate-700`}></div>
+                  )}
+                </div>
+              </div>
+              
+              {(isDnp && comment) && (
+                <div className="absolute bottom-full mb-12 hidden group-hover:block z-[200] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="bg-[#0b141a]/95 text-white text-[10px] p-4 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[180px] text-center backdrop-blur-2xl">
+                    <p className="text-emerald-400 font-black uppercase tracking-widest mb-2 border-b border-white/10 pb-2">{s} Intelligence</p>
+                    <p className="font-bold leading-relaxed italic">"{comment}"</p>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0b141a]"></div>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* Row 2: Labels */}
+      {!compact && (
+        <div className="flex items-start justify-center w-full px-2">
+          {statuses.map((s, idx) => {
+            const { isDone } = getStatusState(s);
+            const isCrossed = isTerminal && s !== 'Never Responded' && s !== 'Junk';
+            const isActive = isDone && !isCrossed;
+            const prevStatuses = statuses.slice(0, idx);
+            const allPrevDone = prevStatuses.every(ps => getStatusState(ps).isDone);
+            const isCurrentStage = !isDone && allPrevDone && !isTerminal;
+
+            return (
+              <React.Fragment key={s}>
+                {idx > 0 && <div className="flex-1 min-w-[25px] max-w-[50px] invisible" />}
+                <div className="w-12 flex flex-col items-center">
+                  <span className={`text-[9px] font-black uppercase tracking-wider text-center w-24 transition-all duration-500 ${isActive ? 'text-emerald-400' : isCurrentStage ? 'text-white' : 'text-slate-600'}`}>
+                    {s.replace('Intro Done - ', '').replace('Intro-', '')}
+                  </span>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 const LinkedinLogo = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#0077b5"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
@@ -211,7 +416,7 @@ class ErrorBoundary extends React.Component {
 }
 
 
-const SourceAnalytics = ({ leads, currentView }) => {
+const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
   const COLORS = ['#00a884', '#3b82f6', '#f59e0b', '#f43f5e', '#8b5cf6'];
   const LI_COLORS = ['#0a66c2', '#00a884', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#ec4899'];
   const [metaFilter, setMetaFilter] = useState('All');
@@ -581,40 +786,50 @@ const SourceAnalytics = ({ leads, currentView }) => {
     value: attritionCounts[key]
   })).sort((a,b) => b.value - a.value).slice(0, 5);
 
-  // Funnel from filtered leads
-  const introsList = ['Intro-Whatsapp', 'Intro Done - Phone Call', 'Intro Done - Whatsapp', 'FUP'];
-  const demosList = ['Demo Booked', 'Demo Booked - No show'];
-  const proposalsList = ['Proposal Call Booked', 'Proposal Call booked- No show', 'Proposal Call Booked- Meeting done', 'Proposal Call booked- Potential Pipeline- Stopped responding'];
+  // ─── MAIN LEADS PERFORMANCE (FOR CARDS) ─────────────────────────
+  const outreachLeads = mainLeads.length > 0 ? mainLeads : [];
   
-  const proposalsCount = filteredLeads.filter(l => proposalsList.includes(l.status)).length;
-  const demosCount = filteredLeads.filter(l => demosList.includes(l.status)).length + proposalsCount;
-  const engagedCount = filteredLeads.filter(l => introsList.includes(l.status)).length + demosCount;
+  const introsList = ['Intro-Whatsapp', 'Intro Done - Phone Call', 'Intro Done - Whatsapp', 'FUP'];
+  const nurturingList = ['DNP 1', 'DNP 2'];
+  const advancedDnpList = ['DNP 3', 'DNP 4'];
+  
+  const mUniverse = outreachLeads.length;
+  const mEngaged = outreachLeads.filter(l => introsList.includes(l.status)).length;
+  const mNurturing = outreachLeads.filter(l => nurturingList.includes(l.status)).length;
+  const mAdvanced = outreachLeads.filter(l => advancedDnpList.includes(l.status)).length;
 
-  const funnelData = [
-    { name: 'Universe', count: filteredLeads.length },
-    { name: 'Engaged', count: engagedCount },
-    { name: 'Demos Rated', count: demosCount },
-    { name: 'Proposals', count: proposalsCount }
-  ];
+  const mEngagedRate = mUniverse > 0 ? Math.round((mEngaged / mUniverse) * 100) : 0;
+  const mNurtureRate = mEngaged > 0 ? Math.round((mNurturing / mEngaged) * 100) : 0;
+  const mAdvancedRate = mNurturing > 0 ? Math.round((mAdvanced / mNurturing) * 100) : 0;
 
-  const universe = filteredLeads.length;
-  const engagedRate = universe > 0 ? Math.round((engagedCount / universe) * 100) : 0;
-  const demoRate = engagedCount > 0 ? Math.round((demosCount / engagedCount) * 100) : 0;
-  const proposalRate = demosCount > 0 ? Math.round((proposalsCount / demosCount) * 100) : 0;
-
-  // Action-Oriented Tactical Metrics
+  // ─── ACTION-ORIENTED TACTICAL METRICS ─────────────────────────
   const now = new Date('2026-04-10'); // Simulated current date
-  const dormantLeads = filteredLeads.filter(l => {
+  const dormantLeads = sourceLeads.filter(l => {
     if (!l.lastContact) return true;
     const diff = Math.floor((now - new Date(l.lastContact)) / (1000 * 60 * 60 * 24));
     return diff >= 7;
   }).length;
   
-  const recentMomentum = filteredLeads.filter(l => {
+  const recentMomentum = sourceLeads.filter(l => {
     if (!l.lastContact) return false;
     const diff = Math.floor((now - new Date(l.lastContact)) / (1000 * 60 * 60 * 24));
     return diff <= 1;
   }).length;
+
+  // ─── RECONSTRUCT FUNNEL DATA (FOR CHARTS) ─────────────────────────
+  const demosList = ['Demo Booked', 'Demo Booked - No show'];
+  const proposalsList = ['Proposal Call Booked', 'Proposal Call booked- No show', 'Proposal Call Booked- Meeting done', 'Proposal Call booked- Potential Pipeline- Stopped responding'];
+  
+  const fProposals = sourceLeads.filter(l => proposalsList.includes(l.status)).length;
+  const fDemos = sourceLeads.filter(l => demosList.includes(l.status)).length + fProposals;
+  const fEngaged = sourceLeads.filter(l => introsList.includes(l.status)).length + fDemos;
+
+  const funnelData = [
+    { name: 'Universe', count: sourceLeads.length },
+    { name: 'Engaged', count: fEngaged },
+    { name: 'Demos Booked', count: fDemos },
+    { name: 'Proposals', count: fProposals }
+  ];
 
   const renderFunnelTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -622,7 +837,7 @@ const SourceAnalytics = ({ leads, currentView }) => {
       const index = funnelData.findIndex(d => d.name === data.name);
       const previous = index > 0 ? funnelData[index - 1].count : data.count;
       const rate = previous > 0 ? Math.round((data.count / previous) * 100) : 0;
-      const overallRate = filteredLeads.length > 0 ? Math.round((data.count / filteredLeads.length) * 100) : 0;
+      const overallRate = sourceLeads.length > 0 ? Math.round((data.count / sourceLeads.length) * 100) : 0;
 
       return (
         <div className="bg-bg-card p-4 rounded-2xl border border-border-main shadow-2xl">
@@ -648,11 +863,10 @@ const SourceAnalytics = ({ leads, currentView }) => {
 
   return (
     <div className="mt-8 px-2 pb-6">
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-4">
         <h2 className="text-2xl font-black text-text-main tracking-tight block">Macro Telemetry</h2>
         <div className="h-px bg-border-main flex-1 hidden sm:block"></div>
       </div>
-
       {/* Status Filter Bar */}
       <div className="flex items-center gap-4 mb-6 bg-bg-card p-3 rounded-2xl border border-border-main shadow-xs">
         <span className="text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0 pl-2">Filter by Status:</span>
@@ -774,19 +988,19 @@ const SourceAnalytics = ({ leads, currentView }) => {
       {/* Macro Funnel Overview / Segment Scorecards */}
       <div className="mt-8 mb-6 animate-fade-in-up">
         <h2 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] mb-6 select-none">
-          {metaFilter !== 'All' ? 'Segment Performance Scorecard' : 'Macro Funnel Performance'}
+          {metaFilter !== 'All' ? 'Segment Performance Scorecard' : 'Outreach Performance Scorecard'}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Main Metric */}
           <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#00a884]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0">
             <div className="absolute inset-0 bg-[#00a884]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
-              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Current Volume' : 'Total Universe'}</p>
+              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Current Volume' : 'Total Main Universe'}</p>
               <h3 className="text-4xl font-black text-text-main tracking-tight">
-                {metaFilter !== 'All' ? filteredCount.toLocaleString() : universe.toLocaleString()}
+                {metaFilter !== 'All' ? filteredCount.toLocaleString() : mUniverse.toLocaleString()}
               </h3>
               <p className="text-[11px] text-text-muted font-bold mt-1 opacity-70">
-                {metaFilter !== 'All' ? 'Leads in active focus' : 'All registered leads'}
+                {metaFilter !== 'All' ? 'Leads in active focus' : 'People in Outreach phase'}
               </p>
             </div>
             <div className="bg-[#00a884]/10 dark:bg-white/10 p-4 rounded-2xl text-[#00a884] shadow-lg border border-[#00a884]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
@@ -798,13 +1012,13 @@ const SourceAnalytics = ({ leads, currentView }) => {
           <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#3b82f6]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-100">
             <div className="absolute inset-0 bg-[#3b82f6]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
-              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Segment Weight' : 'Engaged Leads'}</p>
+              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Segment Weight' : 'Initial Engagement'}</p>
               <h3 className="text-4xl font-black text-text-main tracking-tight">
-                {metaFilter !== 'All' ? filteredPercent : engagedCount.toLocaleString()}
+                {metaFilter !== 'All' ? filteredPercent : mEngaged.toLocaleString()}
                 {metaFilter !== 'All' && <span className="text-xl">%</span>}
               </h3>
               <p className="text-[11px] text-[#3b82f6] font-black mt-1">
-                {metaFilter !== 'All' ? 'Of source pipeline' : `${engagedRate}% engagement yield`}
+                {metaFilter !== 'All' ? 'Of source pipeline' : `${mEngagedRate}% initial yield`}
               </p>
             </div>
             <div className="bg-[#3b82f6]/10 dark:bg-white/10 p-4 rounded-2xl text-[#3b82f6] shadow-lg border border-[#3b82f6]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
@@ -816,12 +1030,12 @@ const SourceAnalytics = ({ leads, currentView }) => {
           <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#f59e0b]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-200">
             <div className="absolute inset-0 bg-[#f59e0b]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
-              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Dormant Leads' : 'Demos Conducted'}</p>
+              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Dormant Leads' : 'Active Nurturing'}</p>
               <h3 className="text-4xl font-black text-text-main tracking-tight">
-                {metaFilter !== 'All' ? dormantLeads : demosCount.toLocaleString()}
+                {metaFilter !== 'All' ? dormantLeads : mNurturing.toLocaleString()}
               </h3>
               <p className="text-[11px] text-[#f59e0b] font-black mt-1">
-                {metaFilter !== 'All' ? 'Idle for 7+ days' : `${demoRate}% demo pass-through`}
+                {metaFilter !== 'All' ? 'Idle for 7+ days' : `${mNurtureRate}% nurture pass-through`}
               </p>
             </div>
             <div className="bg-[#f59e0b]/10 dark:bg-white/10 p-4 rounded-2xl text-[#f59e0b] shadow-lg border border-[#f59e0b]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
@@ -833,12 +1047,12 @@ const SourceAnalytics = ({ leads, currentView }) => {
           <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#00a884]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-300">
             <div className="absolute inset-0 bg-[#00a884]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
-              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Recent Momentum' : 'Proposals Sent'}</p>
+              <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Recent Momentum' : 'Pending Advanced'}</p>
               <h3 className="text-4xl font-black text-text-main tracking-tight">
-                {metaFilter !== 'All' ? recentMomentum : proposalsCount.toLocaleString()}
+                {metaFilter !== 'All' ? recentMomentum : mAdvanced.toLocaleString()}
               </h3>
               <p className="text-[11px] text-[#00a884] font-black mt-1">
-                {metaFilter !== 'All' ? 'Active in last 24h' : `${proposalRate}% conversion yield`}
+                {metaFilter !== 'All' ? 'Active in last 24h' : `${mAdvancedRate}% advanced yield`}
               </p>
             </div>
             <div className="bg-[#00a884]/10 dark:bg-white/10 p-4 rounded-2xl text-[#00a884] shadow-lg border border-[#00a884]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
@@ -869,7 +1083,7 @@ const Sidebar = ({ theme, user, onLogout }) => (
       {[
         { name: 'Dashboard', icon: Layers, path: '/dashboard' },
         { name: 'Leads', icon: Users, path: '/leads' },
-        { name: 'DNP Pipeline', icon: Table, path: '/dnp' },
+        { name: 'Funnel', icon: Layers, path: '/funnel' },
         { name: 'Settings', icon: Settings, path: '/settings' },
       ].map((item) => (
         <NavLink
@@ -1368,12 +1582,32 @@ const AccountModal = ({ onClose, onSave }) => {
   );
 };
 
+const FunnelWrapper = ({ renderFunnel, fetchSourceLeads, activeSource, setActiveSource }) => {
+  const location = useLocation();
+  useEffect(() => {
+    const source = (activeSource === 'Meta' || activeSource === 'Linkedin') ? activeSource : 'Meta';
+    if (activeSource !== source) setActiveSource(source);
+    fetchSourceLeads(source, true);
+  }, [location.pathname]);
+
+  return renderFunnel();
+};
+
+const LeadsWrapper = ({ renderLeads, fetchSourceLeads, activeSource }) => {
+  const location = useLocation();
+  useEffect(() => {
+    fetchSourceLeads(activeSource, false);
+  }, [location.pathname]);
+
+  return renderLeads();
+};
+
 // --- MAIN APP COMPONENT ---
 
 const AppContent = ({ 
   theme, toggleTheme, searchQuery, setSearchQuery, setShowAddForm, 
-  renderDashboard, renderLeads, renderDNP, updateLeadAccount,
-  activeSource, setFormData, user, onLogout 
+  renderDashboard, renderLeads, renderFunnel, fetchSourceLeads, updateLeadAccount,
+  activeSource, setActiveSource, setFormData, user, onLogout 
 }) => {
   const location = useLocation();
   
@@ -1381,7 +1615,7 @@ const AppContent = ({
     switch(location.pathname) {
       case '/dashboard': return 'Lead Operations Center';
       case '/leads': return 'Leads';
-      case '/dnp': return 'DNP Pipeline';
+      case '/funnel': return 'Sales Funnel';
       case '/settings': return 'Settings';
       default: return 'Lead Operations Center';
     }
@@ -1421,8 +1655,8 @@ const AppContent = ({
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={renderDashboard()} />
-            <Route path="/leads" element={renderLeads()} />
-            <Route path="/dnp" element={renderDNP()} />
+            <Route path="/leads" element={<LeadsWrapper renderLeads={renderLeads} fetchSourceLeads={fetchSourceLeads} activeSource={activeSource} />} />
+            <Route path="/funnel" element={<FunnelWrapper renderFunnel={renderFunnel} fetchSourceLeads={fetchSourceLeads} activeSource={activeSource} setActiveSource={setActiveSource} />} />
             <Route path="/settings" element={
               <div className="card p-24 text-center">
                 <Settings size={64} className="mx-auto text-brand-primary opacity-20 mb-8" />
@@ -1469,6 +1703,7 @@ const App = () => {
   }, []);
 
   const [leads, setLeads] = useState([]);
+  const [funnelLeads, setFunnelLeads] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingSource, setLoadingSource] = useState(null);
@@ -1486,6 +1721,11 @@ const App = () => {
   const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [activeDashboardDropdown, setActiveDashboardDropdown] = useState(null);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [activeDatePreset, setActiveDatePreset] = useState('ALL_TIME');
+  const [activeDateDropdown, setActiveDateDropdown] = useState(false);
+  const [activeDnpComment, setActiveDnpComment] = useState(null);
+  const [dnpCommentText, setDnpCommentText] = useState('');
 
   // Persistence management
   useEffect(() => {
@@ -1540,7 +1780,15 @@ const App = () => {
                          phone.includes(searchQuery);
     const matchesSource = activeSource === 'All' || l.source === activeSource;
     const matchesAccount = activeSource !== 'Linkedin' || activeAccount === 'All Accounts' || l.linkedInAccount === activeAccount;
-    return matchesSearch && matchesSource && matchesAccount;
+    
+    let matchesDate = true;
+    if (dateRange.start || dateRange.end) {
+      const leadDate = l.lastContact || '';
+      if (dateRange.start && leadDate < dateRange.start) matchesDate = false;
+      if (dateRange.end && leadDate > dateRange.end) matchesDate = false;
+    }
+
+    return matchesSearch && matchesSource && matchesAccount && matchesDate;
   });
 
   useEffect(() => {
@@ -1598,10 +1846,39 @@ const App = () => {
     }
   };
 
-  const fetchSourceLeads = async (source) => {
+  const setDatePreset = (preset) => {
+    setActiveDatePreset(preset);
+    setActiveDateDropdown(false);
+    const todayDate = new Date();
+    if (preset === 'THIS_MONTH') {
+      const start = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+      const end = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0);
+      setDateRange({ 
+        start: start.toLocaleDateString('en-CA'), 
+        end: end.toLocaleDateString('en-CA') 
+      });
+    } else if (preset === 'LAST_MONTH') {
+      const start = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
+      const end = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
+      setDateRange({ 
+        start: start.toLocaleDateString('en-CA'), 
+        end: end.toLocaleDateString('en-CA') 
+      });
+    } else if (preset === 'ALL_TIME') {
+      setDateRange({ start: '', end: '' });
+    }
+    // If CUSTOM, we don't clear, just let the user change inputs
+  };
+
+  const fetchSourceLeads = async (source, isFunnel = false) => {
     setLoadingSource(source);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_FETCH_LEADS}?action=${source.toUpperCase()}`);
+      let url = `${import.meta.env.VITE_API_FETCH_LEADS}?action=${source.toUpperCase()}`;
+      if (isFunnel) {
+         const funnelAction = source === 'Meta' ? 'MetaFunnel' : 'LinkedinFunnel';
+         url = `https://n8n.srv1010832.hstgr.cloud/webhook/739d38b1-3cf2-4adb-9a88-51ba283b109f?action=${funnelAction}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
       
@@ -1627,6 +1904,16 @@ const App = () => {
         const role = roleRaw.toString().trim();
         const linkedinUrl = item['Linkedin Link'] || item.linkedin || null;
         const companyUrl = item['Company'] || item.company_website || null;
+        const rawStatus = item['Status'] || item.status || (item['Lead stages'] ? item['Lead stages'] : 'New');
+        
+        let finalStatus = 'New';
+        if (source === 'Meta') {
+          finalStatus = META_STATUSES.includes(rawStatus) ? rawStatus : (LEAD_STATUSES.includes(rawStatus) ? rawStatus : 'New');
+        } else {
+          finalStatus = LEAD_STATUSES.includes(rawStatus) ? rawStatus : 'New';
+        }
+
+        const phone = item.Number || item['Lead Phone No'] || item.phone || item.mobile || '---';
         
         if ((!name || name.toLowerCase().includes('linkedin')) && linkedinUrl) {
            const match = linkedinUrl.match(/\/in\/([^/]+)/);
@@ -1641,18 +1928,9 @@ const App = () => {
         
         const finalDisplayName = (source === 'Linkedin' && role) ? `${name} - ${role}` : name;
         if (!finalDisplayName) {
-          name = source === 'Meta' ? (item.phone || item['Lead Phone No'] || 'Meta Prospect') : ('Lead from ' + source);
+          name = source === 'Meta' ? (phone !== '---' ? phone : 'Meta Prospect') : ('Lead from ' + source);
         }
-        const phone = item['Lead Phone No'] || item.phone || item.mobile || '---';
-        const rawStage = item['Lead stages'] || item.stage || '';
-        const rawStatus = item['Status'] || item.status || (rawStage.toLowerCase().includes('junk') ? 'Not intrested' : 'New');
-        
-        let finalStatus = 'New';
-        if (source === 'Meta') {
-          finalStatus = META_STATUSES.includes(rawStatus) ? rawStatus : (LEAD_STATUSES.includes(rawStatus) ? rawStatus : 'New');
-        } else {
-          finalStatus = LEAD_STATUSES.includes(rawStatus) ? rawStatus : 'New';
-        }
+
         
         const notes = [
           rawStatus,
@@ -1771,8 +2049,8 @@ const App = () => {
           ];
 
           for (const col of allDateCols) {
-            const rawVal = item[col];
-            if (!rawVal) continue;
+            const rawVal = (item[col] || '').toString();
+            if (!rawVal || rawVal.toLowerCase().includes('done')) continue;
 
             const parsed = normalizeDateForCheck(rawVal);
             if (!parsed) continue;
@@ -1792,7 +2070,8 @@ const App = () => {
 
 
 
-        const cleanName = (finalDisplayName || name).replace(/\s+/g, '');
+        const rawStage = item['Lead stages'] || item.stage || '';
+        const cleanName = (finalDisplayName || name || 'lead').toString().replace(/\s+/g, '');
         const applyDate = item['Apply Date'] || item['apply date'] || '';
         const linkedinLink = item['Linkedin Link'] || item.linkedin || '';
         const uniqueSuffix = applyDate || linkedinLink || idx;
@@ -1802,40 +2081,46 @@ const App = () => {
           id: deterministicId,
           name: finalDisplayName || name,
           phone,
+          source: source,
           status: finalStatus,
           stage: rawStage,
-          lastContact: item.Date || item['Apply Date'] || item['apply date'] || item['apply_date'] || today,
+          lastContact: normalizeDateForCheck(item.Date || item.date || item.last_contact_date || item['Date/Time'] || item['Apply Date']) || today,
           acceptanceDate: item['Acceptance Date'] || item.acceptance_date || '-',
           linkedInAccount: item['Linkedin Account'] || item.linkedin_account || '-',
           isAccepted: item['Accepted (Y/N)'] || item.is_accepted || 'No',
-          // Upwork specific
-          upworkConnects: item['Connects used'] || item.connects_used || item.upworkConnects || '-',
-          upworkJobType: item['Job Type'] || item['JOB TYPE'] || item.job_type || item.col_12 || item.col_13 || '-',
-          upworkAmountQuoted: item['Amount Quoted'] || item.amount_quoted || item.col_11 || '-',
-          upworkBidAmount: item['Bid Amount'] || item.bid_amount || item.col_14 || '-',
-          upworkApplyDate: item['Apply Date'] || item['apply date'] || item['apply_date'] || item.col_10 || '-',
-          upworkUrl: item['Upwork Link'] || item['Upwork URL'] || item['Upwork link'] || item.upwork || item.col_15 || '',
-          nextFollowUp,
-          followUpReason,
-          source,
-          notes,
-          linkedinUrl,
-          companyUrl,
-          employeeSize: item['Additional info '] || item['Additional info'] || item['additional info'] || '-',
-          chatHistory: item['Chat History'] || item.chat_history || item.col_14 || null,
-          rowNumber: item.row_number || item.row || item._row || null,
-          rawData: item
+          linkedinUrl: linkedinUrl,
+          companyUrl: companyUrl,
+          notes: notes,
+          chatHistory: item['Chat History'] || item.chat_history || null,
+          rawData: item,
+          // Upwork specific fields
+          upworkConnects: item['Connects used'] || item.connects_used || '-',
+          upworkJobType: item['Job Type'] || item.job_type || '-',
+          upworkAmountQuoted: item['Amount Quoted'] || item.amount_quoted || '-',
+          upworkBidAmount: item['Bid Amount'] || item.bid_amount || '-',
+          upworkApplyDate: item['Apply Date'] || item.apply_date || '-',
+          nextFollowUp: nextFollowUp || 'TBD',
+          followUpReason: followUpReason || '-',
+          images: item.images || []
         };
       });
 
-      setLeads(prev => {
-        // Replace all leads for THIS source, keep leads from other sources intact
-        const otherSourceLeads = prev.filter(l => l.source !== source);
-        return [...newLeads, ...otherSourceLeads];
-      });
+      if (isFunnel) {
+        // Funnel fetch → store separately, NEVER touch the main leads state
+        setFunnelLeads(prev => {
+          const otherSourceLeads = prev.filter(l => l.source !== source);
+          return [...newLeads, ...otherSourceLeads];
+        });
+      } else {
+        // Main fetch → replace only this source's main leads, keep others intact
+        setLeads(prev => {
+          const otherSourceLeads = prev.filter(l => l.source !== source);
+          return [...newLeads, ...otherSourceLeads];
+        });
+      }
     } catch (error) {
       console.error('Fetch error:', error);
-      alert(`Could not sync leads from ${source}`);
+      alert(`Could not sync leads from ${source}: ${error.message}`);
     } finally {
       setLoadingSource(null);
     }
@@ -2213,11 +2498,78 @@ const App = () => {
       }
     }
   };
+  
+  const submitDnpComment = async (lead, status, comment) => {
+    if (!comment.trim()) {
+      updateLeadNotes(lead.id, status);
+      setActiveDnpComment(null);
+      return;
+    }
+
+    // 1. Mark the button as Done and save comment locally
+    setLeads(prevLeads => prevLeads.map(l => {
+      if (l.id === lead.id) {
+        const updatedRaw = { ...(l.rawData || {}) };
+        updatedRaw[`${status} comment`] = comment;
+        updatedRaw[`${status.toLowerCase()} comment`] = comment;
+        return { ...l, rawData: updatedRaw };
+      }
+      return l;
+    }));
+
+    if (selectedLead && selectedLead.id === lead.id) {
+      const updatedRaw = { ...(selectedLead.rawData || {}) };
+      updatedRaw[`${status} comment`] = comment;
+      updatedRaw[`${status.toLowerCase()} comment`] = comment;
+      setSelectedLead({ ...selectedLead, rawData: updatedRaw });
+    }
+
+    updateLeadNotes(lead.id, status);
+
+    // 2. Send comment to webhook
+    if (lead.source === 'Meta') {
+      try {
+        await fetch(import.meta.env.VITE_API_META_STATUS, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            [`${status} comment`]: comment,
+            row_number: lead.rowNumber || lead.rawData?.row_number || lead.rawData?.row || null,
+            lead_name: lead.name,
+            phone: lead.phone,
+            action_query: "Comment"
+          })
+        });
+      } catch (err) {
+        console.error('DNP Comment Sync Error:', err);
+      }
+    } else if (lead.source === 'Linkedin') {
+      try {
+        await fetch(import.meta.env.VITE_API_LINKEDIN_SYNC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            row_number: lead.rowNumber || lead.rawData?.row_number || lead.rawData?.row || null,
+            column_name: `${status} comment`,
+            input: comment,
+            action_query: "Comment"
+          })
+        });
+      } catch (err) {
+        console.error('LinkedIn DNP Comment Sync Error:', err);
+      }
+    }
+
+    setActiveDnpComment(null);
+    setDnpCommentText('');
+  };
 
   const renderDashboard = () => {
     const currentView = activeSource === 'All' ? 'Meta' : activeSource;
     // Compute directly from leads — no intermediary — to guarantee source isolation
-    const activeLeads = leads.filter(l =>
+    const mainLeads = leads.filter(l => !FUNNEL_STATUSES.includes(l.status));
+    
+    const activeLeads = mainLeads.filter(l =>
       l.source === currentView &&
       l.nextFollowUp === today &&
       !TERMINAL_STATUSES.includes((l.status || '').toLowerCase()) &&
@@ -2498,7 +2850,13 @@ const App = () => {
           
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-6">
             {(currentView === 'Meta' || currentView === 'Linkedin') ? (
-              leads.length > 0 && <SourceAnalytics leads={leads.filter(l => l.source === currentView)} currentView={currentView} />
+              leads.length > 0 && (
+                <SourceAnalytics 
+                  leads={leads.filter(l => l.source === currentView)} 
+                  mainLeads={mainLeads.filter(l => l.source === currentView)}
+                  currentView={currentView} 
+                />
+              )
             ) : (
               <div className="h-[50vh] xl:h-full flex flex-col items-center justify-center p-8 bg-bg-main/30 rounded-3xl border border-border-main border-dashed">
                 <Database size={48} className="text-text-muted opacity-30 mb-4" />
@@ -2513,6 +2871,24 @@ const App = () => {
   };
 
   const renderLeads = () => {
+    const filteredLeads = leads.filter(lead => {
+      const isFunnel = FUNNEL_STATUSES.includes(lead.status);
+      const matchesSource = activeSource === 'All' || lead.source === activeSource;
+      const matchesAccount = activeSource !== 'Linkedin' || activeAccount === 'All Accounts' || lead.linkedInAccount === activeAccount;
+      const name = lead.name || '';
+      const phone = lead.phone || '';
+      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || phone.includes(searchQuery);
+      
+      let matchesDate = true;
+      if (dateRange.start || dateRange.end) {
+        const leadDate = lead.lastContact || '';
+        if (dateRange.start && leadDate < dateRange.start) matchesDate = false;
+        if (dateRange.end && leadDate > dateRange.end) matchesDate = false;
+      }
+      
+      return matchesSource && matchesAccount && matchesSearch && matchesDate && !isFunnel;
+    });
+
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 bg-bg-card p-4 rounded-3xl border border-border-main shadow-xs">
@@ -2522,7 +2898,7 @@ const App = () => {
                 key={source}
                 onClick={() => {
                   setActiveSource(source);
-                  fetchSourceLeads(source);
+                  fetchSourceLeads(source, false);
                 }}
                 className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeSource === source ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'text-text-muted hover:text-text-main hover:bg-bg-card'}`}
               >
@@ -2531,12 +2907,76 @@ const App = () => {
             ))}
           </div>
           {activeSource === 'Linkedin' && linkedInAccounts.length > 1 && (
-            <div className="flex items-center gap-3 bg-bg-main border border-border-main px-4 py-2 rounded-2xl">
+            <div className="flex items-center gap-3 bg-bg-main border border-border-main px-4 py-2 rounded-2xl md:ml-4">
               <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Sender ID:</span>
               <select value={activeAccount} onChange={(e) => { if (e.target.value === 'ADD_NEW') { setShowAccountModal(true); return; } setActiveAccount(e.target.value); }} className="outline-none text-xs font-black text-text-main bg-transparent cursor-pointer appearance-none">
                 {linkedInAccounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
                 <option value="ADD_NEW">+ REGISTER NEW SENDER</option>
               </select>
+            </div>
+          )}
+
+          {(activeSource === 'Meta' || activeSource === 'Linkedin') && (
+            <div className="flex flex-wrap items-center gap-3 ml-auto">
+              <div className="relative">
+                <button 
+                  onClick={() => setActiveDateDropdown(!activeDateDropdown)}
+                  className="bg-bg-main border border-border-main px-6 py-2.5 rounded-2xl text-[10px] font-black text-text-main outline-none flex items-center gap-4 hover:border-brand-primary transition-all shadow-sm uppercase tracking-widest min-w-[160px] justify-between"
+                >
+                  {activeDatePreset === 'ALL_TIME' ? 'All Time' : activeDatePreset.replace('_', ' ')}
+                  <ChevronDown size={14} className={`transition-transform duration-300 ${activeDateDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {activeDateDropdown && (
+                  <div className="absolute top-full mt-2 left-0 z-[100] bg-bg-card border border-border-main rounded-2xl shadow-2xl p-2 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-300">
+                    {[
+                      { id: 'ALL_TIME', label: 'All Time' },
+                      { id: 'THIS_MONTH', label: 'This Month' },
+                      { id: 'LAST_MONTH', label: 'Last Month' },
+                      { id: 'CUSTOM', label: 'Custom Range' }
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setDatePreset(opt.id)}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all
+                          ${activeDatePreset === opt.id 
+                            ? 'bg-brand-primary text-white shadow-lg' 
+                            : 'text-text-muted hover:bg-bg-main hover:text-text-main'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {activeDatePreset === 'CUSTOM' && (
+                <div className="flex items-center gap-2 bg-bg-main border border-brand-primary/20 px-4 py-2 rounded-2xl animate-in slide-in-from-right-4 duration-300 shadow-sm">
+                  <Calendar size={14} className="text-brand-primary" />
+                  <input 
+                    type="date" 
+                    value={dateRange.start} 
+                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    className="bg-transparent text-[10px] font-black text-text-main outline-none uppercase"
+                  />
+                  <span className="text-text-muted text-[10px] font-black opacity-30">TO</span>
+                  <input 
+                    type="date" 
+                    value={dateRange.end} 
+                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    className="bg-transparent text-[10px] font-black text-text-main outline-none uppercase"
+                  />
+                  <button 
+                    onClick={() => {
+                      setDateRange({ start: '', end: '' });
+                      setActiveDatePreset('ALL_TIME');
+                    }}
+                    className="ml-1 p-1 hover:bg-rose-500/10 text-rose-500 rounded-lg transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -2555,9 +2995,11 @@ const App = () => {
                        <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Status</th>
                     )}
                     {activeSource !== 'Upwork' && (
-                      <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">{activeSource === 'Meta' ? 'Lead Status' : 'Account Owner'}</th>
+                      <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">{activeSource === 'Meta' ? 'Upcoming' : 'Account Owner'}</th>
                     )}
-                    <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">{activeSource === 'Upwork' ? 'Apply Date' : 'Follow-up'}</th>
+                    {activeSource === 'Upwork' && (
+                      <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Apply Date</th>
+                    )}
                     {activeSource === 'Upwork' && (
                       <th className="px-5 py-6 text-center text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Link</th>
                     )}
@@ -2572,36 +3014,43 @@ const App = () => {
                       className="group hover:bg-bg-main/50 transition-all duration-300 cursor-pointer"
                     >
                       <td className="px-5 py-5">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-sm border
-                            ${lead.source === 'Upwork' 
-                              ? 'bg-[#14a800]/10 text-[#14a800] border-[#14a800]/20' 
-                              : 'bg-brand-primary/10 text-brand-primary border-brand-primary/10'}`}>
-                            {(lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || '?')).charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-text-main text-sm">
-                                {lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || 'Unnamed Lead')}
-                              </p>
-                              {lead.source === 'Upwork' && (
-                                <button 
-                                  onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    window.open(lead.upworkUrl || 'https://www.upwork.com', '_blank'); 
-                                  }}
-                                  className="w-5 h-5 flex items-center justify-center rounded-md bg-[#14a800]/10 text-[#14a800] hover:bg-[#14a800] hover:text-white transition-all border border-[#14a800]/20"
-                                  title={lead.upworkUrl ? "Open Upwork Job" : "Go to Upwork"}
-                                >
-                                  <UpworkLogo />
-                                </button>
-                              )}
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-sm border
+                              ${lead.source === 'Upwork' 
+                                ? 'bg-[#14a800]/10 text-[#14a800] border-[#14a800]/20' 
+                                : 'bg-brand-primary/10 text-brand-primary border-brand-primary/10'}`}>
+                              {(lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || '?')).charAt(0).toUpperCase()}
                             </div>
-                            <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-0.5 opacity-50">
-                              {lead.source}{lead.phone ? ` · ${lead.phone}` : ''}
-                              {lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) && ` · ${lead.name}`}
-                            </p>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-text-main text-sm">
+                                  {lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || 'Unnamed Lead')}
+                                </p>
+                                {lead.source === 'Upwork' && (
+                                  <button 
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      window.open(lead.upworkUrl || 'https://www.upwork.com', '_blank'); 
+                                    }}
+                                    className="w-5 h-5 flex items-center justify-center rounded-md bg-[#14a800]/10 text-[#14a800] hover:bg-[#14a800] hover:text-white transition-all border border-[#14a800]/20"
+                                    title={lead.upworkUrl ? "Open Upwork Job" : "Go to Upwork"}
+                                  >
+                                    <UpworkLogo />
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-0.5 opacity-50">
+                                {lead.source}{lead.phone ? ` · ${lead.phone}` : ''}
+                                {lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) && ` · ${lead.name}`}
+                              </p>
+                            </div>
                           </div>
+                          {lead.source === 'Meta' && (
+                            <div className="w-[300px]" onClick={(e) => e.stopPropagation()}>
+                              <LeadStatusTracker lead={lead} compact={true} />
+                            </div>
+                          )}
                         </div>
                       </td>
                       {activeSource !== 'Upwork' && (
@@ -2627,18 +3076,9 @@ const App = () => {
                       {activeSource !== 'Upwork' && (
                         <td className="px-5 py-5">
                           {activeSource === 'Meta' ? (
-                            <select 
-                              value={lead.status} 
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
-                              className="bg-bg-main px-3 py-1.5 rounded-lg text-[10px] font-black text-text-main border border-border-main appearance-none outline-none focus:border-brand-primary transition-colors cursor-pointer w-full max-w-[150px]"
-                            >
-                              {!META_STATUSES.includes(lead.status) && lead.status !== 'New' && (
-                                <option value={lead.status}>{lead.status}</option>
-                              )}
-                              <option value="New">New</option>
-                              {META_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                            <span className={`text-[11px] font-bold px-3 py-1 rounded-lg inline-block ${lead.nextFollowUp === today ? 'bg-rose-500/10 text-rose-500' : 'bg-brand-primary/10 text-brand-primary'}`}>
+                              {lead.nextFollowUp || 'TBD'}
+                            </span>
                           ) : (
                             <div className="flex items-center gap-2">
                               <select 
@@ -2656,11 +3096,13 @@ const App = () => {
                           )}
                         </td>
                       )}
-                      <td className="px-5 py-5">
-                        <span className={`text-[11px] font-bold px-3 py-1 rounded-lg inline-block ${activeSource === 'Upwork' ? 'bg-emerald-500/10 text-emerald-500' : (lead.nextFollowUp === today ? 'bg-rose-500/10 text-rose-500' : 'bg-brand-primary/10 text-brand-primary')}`}>
-                          {activeSource === 'Upwork' ? (lead.upworkApplyDate || '—') : (lead.nextFollowUp || 'TBD')}
-                        </span>
-                      </td>
+                      {activeSource === 'Upwork' && (
+                        <td className="px-5 py-5">
+                          <span className="text-[11px] font-bold px-3 py-1 rounded-lg inline-block bg-emerald-500/10 text-emerald-500">
+                            {lead.upworkApplyDate || '—'}
+                          </span>
+                        </td>
+                      )}
                       {activeSource === 'Upwork' && (
                          <td className="px-5 py-5 text-center">
                             <button 
@@ -2677,9 +3119,36 @@ const App = () => {
                       )}
                       <td className="px-5 py-5">
                         <div className="flex items-center justify-center gap-2">
-                          {lead.source === 'Meta' && lead.chatHistory && (
-                            <button onClick={(e) => { e.stopPropagation(); setActiveChatLead(lead); }} className="px-4 py-2 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-brand-primary/20">
-                              Chat
+                          {lead.source === 'Meta' && (
+                            <div className="flex items-center gap-1">
+                              <button 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  const cleanPhone = (lead.phone || '').toString().replace(/\D/g, '');
+                                  window.open(`https://wa.me/${cleanPhone}`, '_blank');
+                                }} 
+                                className="p-2.5 bg-[#25d366]/10 text-[#25d366] hover:bg-[#25d366] hover:text-white rounded-xl transition-all border border-[#25d366]/20 shadow-sm"
+                                title="WhatsApp Prospect"
+                              >
+                                <WhatsappLogo size={18} />
+                              </button>
+                              <button 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  const cleanPhone = (lead.phone || '').toString().replace(/\D/g, '');
+                                  window.location.href = `tel:${cleanPhone}`;
+                                }} 
+                                className="p-2.5 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white rounded-xl transition-all border border-brand-primary/20 shadow-sm"
+                                title="Call Prospect"
+                              >
+                                <PhoneLogo size={18} />
+                              </button>
+                            </div>
+                          )}
+
+                          {lead.source === 'Meta' && lead.chatHistory && !['', '-', '---'].includes(lead.chatHistory) && (
+                            <button onClick={(e) => { e.stopPropagation(); setActiveChatLead(lead); }} className="px-4 py-2 bg-bg-card hover:bg-bg-main text-text-muted rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-border-main">
+                              History
                             </button>
                           )}
 
@@ -2709,7 +3178,7 @@ const App = () => {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={activeSource === 'Meta' ? 5 : 6} className="px-5 py-24 text-center">
+                      <td colSpan={activeSource === 'Meta' ? 3 : (activeSource === 'Upwork' ? 4 : 4)} className="px-5 py-24 text-center">
                         <Database size={40} className="mx-auto text-text-muted opacity-10 mb-4" />
                         <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No leads match the current filter</p>
                       </td>
@@ -2724,51 +3193,237 @@ const App = () => {
     );
   };
 
-  const renderDNP = () => (
-    <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide animate-in fade-in duration-500">
-      {STAGES.map((stage) => (
-        <div key={stage} className="min-w-[320px] bg-bg-main/50 p-4 rounded-3xl border border-border-main/50 flex flex-col h-[calc(100vh-350px)]">
-          <div className="flex items-center justify-between mb-6 px-2">
-            <h4 className="font-black text-text-main text-xs uppercase tracking-[0.2em] flex items-center gap-3">
-              {stage}
-              <span className="text-[10px] font-black bg-brand-primary/10 text-brand-primary px-2.5 py-0.5 rounded-full border border-brand-primary/20">
-                {leads.filter(l => l.stage === stage).length}
-              </span>
-            </h4>
-          </div>
-          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
-            {leads.filter(l => l.stage === stage).map(lead => (
-              <div 
-                key={lead.id} 
-                onClick={() => setSelectedLead(lead)}
-                className="card p-5 group cursor-pointer border-l-[6px] border-l-rose-500/50 hover:border-l-rose-500 transition-all"
+  const renderFunnel = () => {
+    const currentFunnelSource = (activeSource === 'Meta' || activeSource === 'Linkedin') ? activeSource : 'Meta';
+
+    const funnelLeadsList = funnelLeads.filter(l => {
+      const matchesSource = l.source === currentFunnelSource;
+      const matchesAccount = l.source !== 'Linkedin' || activeAccount === 'All Accounts' || l.linkedInAccount === activeAccount;
+      
+      const name = l.name || '';
+      const phone = l.phone || '';
+      const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || phone.includes(searchQuery);
+
+      let matchesDate = true;
+      if (dateRange.start || dateRange.end) {
+        const leadDate = l.lastContact || '';
+        if (dateRange.start && leadDate < dateRange.start) matchesDate = false;
+        if (dateRange.end && leadDate > dateRange.end) matchesDate = false;
+      }
+
+      return matchesSource && matchesAccount && matchesSearch && matchesDate;
+    });
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 bg-bg-card p-4 rounded-3xl border border-border-main shadow-xs">
+          <div className="flex bg-[#0b141a] p-1.5 rounded-2xl border border-white/5 w-full lg:w-fit overflow-x-auto shadow-inner">
+            {['Meta', 'Linkedin'].map(source => (
+              <button
+                key={source}
+                onClick={() => {
+                  setActiveSource(source);
+                  fetchSourceLeads(source, true);
+                }}
+                className={`px-12 py-3 rounded-xl text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300 min-w-[140px] ${
+                  currentFunnelSource === source 
+                    ? 'bg-[#9fd48a] text-[#0b141a] shadow-lg shadow-[#9fd48a]/20' 
+                    : 'text-[#8696a0] hover:text-white hover:bg-white/5'
+                }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-bold text-text-main text-sm">{lead.name}</p>
-                  <More size={14} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-4">{lead.phone}</p>
-                <div className="flex items-center justify-between pt-4 border-t border-border-main mb-2">
-                   <div className="text-[10px] text-text-muted font-black uppercase tracking-widest">Last Activity</div>
-                   <div className="text-[10px] text-text-main font-bold">{lead.lastContact}</div>
-                </div>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const nextDate = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-                    updateLeadStatus(lead.id, 'DNP', nextDate);
-                  }}
-                  className="w-full py-2 bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all mt-2"
-                >
-                  NEXT ATTEMPT
-                </button>
-              </div>
+                {source}
+              </button>
             ))}
           </div>
+          {currentFunnelSource === 'Linkedin' && linkedInAccounts.length > 1 && (
+            <div className="flex items-center gap-3 bg-bg-main border border-border-main px-4 py-2 rounded-2xl md:ml-4">
+              <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Sender ID:</span>
+              <select value={activeAccount} onChange={(e) => { if (e.target.value === 'ADD_NEW') { setShowAccountModal(true); return; } setActiveAccount(e.target.value); }} className="outline-none text-xs font-black text-text-main bg-transparent cursor-pointer appearance-none">
+                {linkedInAccounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                <option value="ADD_NEW">+ REGISTER NEW SENDER</option>
+              </select>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 ml-auto">
+            <div className="relative">
+              <button 
+                onClick={() => setActiveDateDropdown(!activeDateDropdown)}
+                className="bg-[#0b141a] border border-white/10 px-6 py-2.5 rounded-2xl text-[10px] font-black text-[#8696a0] outline-none flex items-center gap-4 hover:border-[#9fd48a] transition-all shadow-sm uppercase tracking-widest min-w-[160px] justify-between"
+              >
+                {activeDatePreset === 'ALL_TIME' ? 'All Time' : activeDatePreset.replace('_', ' ')}
+                <ChevronDown size={14} className={`transition-transform duration-300 ${activeDateDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {activeDateDropdown && (
+                <div className="absolute top-full mt-2 left-0 z-[100] bg-[#0b141a] border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-300">
+                  {[
+                    { id: 'ALL_TIME', label: 'All Time' },
+                    { id: 'THIS_MONTH', label: 'This Month' },
+                    { id: 'LAST_MONTH', label: 'Last Month' },
+                    { id: 'CUSTOM', label: 'Custom Range' }
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => { setDatePreset(opt.id); setActiveDateDropdown(false); }}
+                      className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all
+                        ${activeDatePreset === opt.id 
+                          ? 'bg-[#9fd48a] text-[#0b141a] shadow-lg shadow-[#9fd48a]/20' 
+                          : 'text-[#8696a0] hover:bg-white/5 hover:text-white'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {activeDatePreset === 'CUSTOM' && (
+              <div className="flex items-center gap-2 bg-[#0b141a] border border-[#9fd48a]/30 px-4 py-2 rounded-2xl animate-in slide-in-from-right-4 duration-300 shadow-sm">
+                <Calendar size={14} className="text-[#9fd48a]" />
+                <input 
+                  type="date" 
+                  value={dateRange.start} 
+                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="bg-transparent text-[10px] font-black text-[#8696a0] outline-none uppercase"
+                />
+                <span className="text-[#8696a0]/50 text-[10px] font-black">TO</span>
+                <input 
+                  type="date" 
+                  value={dateRange.end} 
+                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="bg-transparent text-[10px] font-black text-[#8696a0] outline-none uppercase"
+                />
+                <button 
+                  onClick={() => {
+                    setDateRange({ start: '', end: '' });
+                    setActiveDatePreset('ALL_TIME');
+                  }}
+                  className="ml-1 p-1 hover:bg-rose-500/10 text-rose-500 rounded-lg transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      ))}
-    </div>
-  );
+
+        <div className="card overflow-hidden min-h-[500px]">
+          {loadingSource ? <LoadingAnimation /> : (
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-border-main">
+                    <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Prospect Entity</th>
+                    <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Last Contact</th>
+                    <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">{currentFunnelSource === 'Meta' ? 'Upcoming' : 'Account Owner'}</th>
+                    <th className="px-5 py-6 text-center text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-main/50">
+                  {funnelLeadsList.length > 0 ? funnelLeadsList.map(lead => (
+                    <tr 
+                      key={lead.id} 
+                      onClick={() => setSelectedLead(lead)}
+                      className="group hover:bg-bg-main/50 transition-all duration-300 cursor-pointer"
+                    >
+                      <td className="px-5 py-5">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-brand-primary/10 text-brand-primary border border-brand-primary/10 flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                              {(lead.name || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-text-main text-sm">{lead.name || 'Unnamed Lead'}</p>
+                              <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-0.5 opacity-50">
+                                {lead.source}{lead.phone ? ` · ${lead.phone}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          {lead.source === 'Meta' && (
+                            <div className="w-[300px]" onClick={(e) => e.stopPropagation()}>
+                              <LeadStatusTracker lead={lead} compact={true} />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-5">
+                        <span className="text-xs text-text-muted">{lead.lastContact || '—'}</span>
+                      </td>
+                      <td className="px-5 py-5">
+                        <span className={`text-[11px] font-bold px-3 py-1 rounded-lg inline-block ${lead.nextFollowUp === today ? 'bg-rose-500/10 text-rose-500' : 'bg-brand-primary/10 text-brand-primary'}`}>
+                          {currentFunnelSource === 'Meta' ? (lead.nextFollowUp || 'TBD') : (lead.linkedInAccount || '-')}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-5">
+                        <div className="flex items-center justify-center gap-2">
+                          {lead.source === 'Meta' && (
+                            <div className="flex items-center gap-1">
+                              <button 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  const cleanPhone = (lead.phone || '').toString().replace(/\D/g, '');
+                                  window.open(`https://wa.me/${cleanPhone}`, '_blank');
+                                }} 
+                                className="p-2.5 bg-[#25d366]/10 text-[#25d366] hover:bg-[#25d366] hover:text-white rounded-xl transition-all border border-[#25d366]/20 shadow-sm"
+                                title="WhatsApp Prospect"
+                              >
+                                <WhatsappLogo size={18} />
+                              </button>
+                              <button 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  const cleanPhone = (lead.phone || '').toString().replace(/\D/g, '');
+                                  window.location.href = `tel:${cleanPhone}`;
+                                }} 
+                                className="p-2.5 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white rounded-xl transition-all border border-brand-primary/20 shadow-sm"
+                                title="Call Prospect"
+                              >
+                                <PhoneLogo size={18} />
+                              </button>
+                            </div>
+                          )}
+
+                          {lead.source === 'Meta' && lead.chatHistory && !['', '-', '---'].includes(lead.chatHistory) && (
+                            <button onClick={(e) => { e.stopPropagation(); setActiveChatLead(lead); }} className="px-4 py-2 bg-bg-card hover:bg-bg-main text-text-muted rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-border-main">
+                              History
+                            </button>
+                          )}
+
+                          {lead.source === 'Linkedin' && lead.linkedinUrl && (
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); window.open(lead.linkedinUrl, '_blank'); }}
+                               className="p-2.5 bg-brand-primary/10 text-brand-primary rounded-xl hover:bg-brand-primary hover:text-white transition-all shadow-sm flex items-center justify-center border border-brand-primary/20"
+                               title="View LinkedIn Profile"
+                             >
+                               <LinkedinLogo />
+                             </button>
+                           )}
+                           <button onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); }} className="px-4 py-2 bg-bg-main hover:bg-brand-primary hover:text-white text-text-main rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-border-main">
+                             Intelligence
+                           </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={3} className="px-5 py-24 text-center">
+                        <Database size={40} className="mx-auto text-text-muted opacity-10 mb-4" />
+                        <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No prospects in the funnel cycle</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+
 
   const handleLogout = async () => {
     try {
@@ -2810,10 +3465,12 @@ const App = () => {
           setShowAddForm={setShowAddForm}
           renderDashboard={renderDashboard}
           renderLeads={renderLeads}
-          renderDNP={renderDNP}
+          renderFunnel={renderFunnel}
           updateLeadAccount={updateLeadAccount}
           activeSource={activeSource}
+          setActiveSource={setActiveSource}
           setFormData={setFormData}
+          fetchSourceLeads={fetchSourceLeads}
           user={user}
           onLogout={handleLogout}
         />
@@ -3102,12 +3759,21 @@ const App = () => {
                            )}
                         </div>
                         {selectedLead.source !== 'Upwork' && (
-                          <div className="mt-12">
-                             <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-10 flex items-center justify-center gap-4">
+                         <div className="mt-12">
+                            <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-10 flex items-center justify-center gap-4">
+                                <div className="h-px bg-brand-primary/20 w-16"></div>
+                                OPERATIONAL PROGRESS TRACKER
+                                <div className="h-px bg-brand-primary/20 w-16"></div>
+                            </h4>
+                            <div className="bg-bg-card p-10 rounded-[40px] border border-border-main shadow-inner mb-12">
+                               <LeadStatusTracker lead={selectedLead} />
+                            </div>
+
+                            <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-10 flex items-center justify-center gap-4">
                                 <div className="h-px bg-brand-primary/20 w-16"></div>
                                 QUICK DISPOSITION & LOGS
                                 <div className="h-px bg-brand-primary/20 w-16"></div>
-                             </h4>
+                            </h4>
                              
                              <div className="space-y-10">
                                 {(() => {
@@ -3128,7 +3794,18 @@ const App = () => {
                                   const anyDnpDone = d1Filled || d2Filled || d3Filled || d4Filled;
                                   const anyIntroDone = introFilled || phoneFilled || waFilled;
 
-                                  const groupsToUse = selectedLead.source === 'Linkedin' ? LINKEDIN_DISPOSITION_GROUPS : DISPOSITION_GROUPS;
+                                  let groupsToUse = selectedLead.source === 'Linkedin' ? LINKEDIN_DISPOSITION_GROUPS : DISPOSITION_GROUPS;
+
+                                  // Filter out initial outreach groups if we are in the funnel view
+                                  if (window.location.pathname.includes('/funnel')) {
+                                    const filteredGroups = {};
+                                    Object.entries(groupsToUse).forEach(([group, statuses]) => {
+                                      if (group !== 'Intro Phase' && group !== 'DNP / Outreach') {
+                                        filteredGroups[group] = statuses;
+                                      }
+                                    });
+                                    groupsToUse = filteredGroups;
+                                  }
 
                                   return Object.entries(groupsToUse).map(([group, statuses]) => {
                                     const filteredStatuses = statuses;
@@ -3170,26 +3847,59 @@ const App = () => {
 
                                               const hasScheduledDate = !!dateOnly && !isDone && !isLocallySelected;
                                               const showGreen = isDone || isLocallySelected;
+                                              const isDnpType = status.includes('DNP') && !status.includes('Never');
 
                                               return (
-                                                <button 
-                                                  key={status}
-                                                  onClick={() => updateLeadNotes(selectedLead.id, status)}
-                                                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex flex-col items-center gap-0.5 min-w-[120px]
-                                                    ${showGreen
-                                                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20 scale-105' 
-                                                      : hasScheduledDate
-                                                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/40'
-                                                        : 'bg-bg-card text-text-muted border-border-main hover:border-brand-primary/50 hover:text-brand-primary'}`}
-                                                  title={sheetValue || 'No record'}
-                                                >
-                                                  <span className="leading-tight">{status}</span>
-                                                  {dateOnly && (
-                                                    <span className={`text-[8px] font-black opacity-60 block ${showGreen ? 'text-white' : 'text-emerald-500'}`}>
-                                                      {dateOnly}
-                                                    </span>
+                                                <div key={status} className="relative group/btn">
+                                                  <button 
+                                                    onClick={() => {
+                                                      if (isDnpType) {
+                                                        setActiveDnpComment(status);
+                                                        setDnpCommentText('');
+                                                      } else {
+                                                        updateLeadNotes(selectedLead.id, status);
+                                                      }
+                                                    }}
+                                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex flex-col items-center gap-2 min-w-[120px] transition-all
+                                                      ${showGreen
+                                                        ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20 scale-105' 
+                                                        : hasScheduledDate
+                                                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/40'
+                                                          : 'bg-bg-card text-text-muted border-border-main hover:border-brand-primary/50 hover:text-brand-primary'}`}
+                                                    title={sheetValue || 'No record'}
+                                                  >
+                                                    <div className="flex items-center gap-2">
+                                                      {isDnpType && <DnpLogo size={14} color={showGreen ? "white" : "currentColor"} />}
+                                                      {status === 'Junk' && <JunkLogo size={14} color={showGreen ? "white" : "currentColor"} />}
+                                                      {status === 'Never Responded' && <NeverRespondedLogo size={14} color={showGreen ? "white" : "currentColor"} />}
+                                                      <span className="leading-tight">{status}</span>
+                                                    </div>
+                                                    {dateOnly && (
+                                                      <span className={`text-[8px] font-black opacity-60 block ${showGreen ? 'text-white' : 'text-emerald-500'}`}>
+                                                        {dateOnly}
+                                                      </span>
+                                                    )}
+                                                  </button>
+                                                  
+                                                  {activeDnpComment === status && (
+                                                    <div className="absolute inset-0 z-[60] animate-in zoom-in-95 duration-200">
+                                                      <input 
+                                                        autoFocus
+                                                        placeholder="DNP Note..."
+                                                        value={dnpCommentText}
+                                                        onChange={(e) => setDnpCommentText(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                          if (e.key === 'Enter') {
+                                                            submitDnpComment(selectedLead, status, dnpCommentText);
+                                                          } else if (e.key === 'Escape') {
+                                                            setActiveDnpComment(null);
+                                                          }
+                                                        }}
+                                                        className="w-full h-full bg-[#0b141a] text-white text-[10px] font-black px-4 py-2 rounded-xl border-2 border-[#25d366] outline-none shadow-2xl uppercase placeholder:text-white/20"
+                                                      />
+                                                    </div>
                                                   )}
-                                                </button>
+                                                </div>
                                               );
                                             })}
                                         </div>
