@@ -33,9 +33,9 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 selection:bg-brand-primary/30">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4 selection:bg-brand-primary/30">
       <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
-        <div className="bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl overflow-hidden relative group">
+        <div className="bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-[2rem] p-8 shadow-2xl overflow-hidden relative group">
           {/* Decorative Background Elements */}
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-brand-primary/20 rounded-full blur-3xl group-hover:bg-brand-primary/30 transition-all duration-700"></div>
           <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all duration-700"></div>
@@ -61,7 +61,7 @@ const Login = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-white/5 rounded-xl h-12 pl-12 pr-4 text-white font-bold outline-none focus:border-brand-primary/50 transition-all placeholder:text-slate-600"
+                    className="w-full bg-black/50 border border-white/5 rounded-xl h-12 pl-12 pr-4 text-white font-bold outline-none focus:border-brand-primary/50 transition-all placeholder:text-slate-600"
                     placeholder="name@company.com"
                   />
                 </div>
@@ -76,7 +76,7 @@ const Login = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-white/5 rounded-xl h-12 pl-12 pr-4 text-white font-bold outline-none focus:border-brand-primary/50 transition-all placeholder:text-slate-600"
+                    className="w-full bg-black/50 border border-white/5 rounded-xl h-12 pl-12 pr-4 text-white font-bold outline-none focus:border-brand-primary/50 transition-all placeholder:text-slate-600"
                     placeholder="••••••••"
                   />
                 </div>

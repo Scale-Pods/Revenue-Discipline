@@ -31,7 +31,9 @@ import {
   MoreVertical as More,
   Briefcase,
   ExternalLink,
-  LogIn
+  LogIn,
+  Zap,
+  PencilLine
 } from 'lucide-react';
 import { 
   BrowserRouter, 
@@ -57,7 +59,8 @@ const FUNNEL_STATUSES = [
   'Proposal Call booked- No show', 
   'Proposal Call Booked- Meeting done', 
   'Proposal Call booked- Potential Pipeline- Stopped responding',
-  'Demo Booked - No show'
+  'Demo Booked - No show',
+  'MOVE TO PIPELINE'
 ];
 
 const LEAD_STATUSES = [
@@ -89,7 +92,17 @@ const META_STATUSES = [
   'Proposal Call booked- Potential Pipeline- Stopped responding',
   'not interested',
   'Junk',
-  'Demo Booked - No show'
+  'Demo Booked - No show',
+  'MOVE TO PIPELINE'
+];
+
+const PIPELINE_FINAL_STATUSES = ['dropped', 'closed'];
+const PIPELINE_STAGES = [
+  'intro meeting done',
+  'proposal call done',
+  'closed',
+  'not closed',
+  'proposal sent'
 ];
 
 // --- SUB-COMPONENTS ---
@@ -135,6 +148,73 @@ const NeverRespondedLogo = ({ size = 20, color = "currentColor" }) => (
 
 
 
+const CustomSelect = ({ options, value, onChange, placeholder = "Select...", className = "", triggerClassName = "" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const dropdownRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpward(spaceBelow < 250);
+    }
+  }, [isOpen]);
+
+  const selectedOption = options.find(opt => (opt.value !== undefined ? opt.value : opt) === value);
+  const displayValue = selectedOption?.label || selectedOption || value || placeholder;
+
+  return (
+    <div className={`relative ${className} ${isOpen ? 'z-[100]' : ''}`} ref={dropdownRef} onClick={e => e.stopPropagation()}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        tabIndex={0}
+        className={`cursor-pointer flex items-center justify-between gap-2 ${triggerClassName} focus:outline-none min-h-[32px]`}
+      >
+        <span className="truncate">{displayValue}</span>
+        <ChevronDown size={14} className={`shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && (
+        <div className={`absolute ${openUpward ? 'bottom-full mb-2' : 'top-full mt-1'} left-0 min-w-[180px] w-full bg-bg-card border border-border-main rounded-xl shadow-2xl z-[999] animate-in fade-in zoom-in-95 duration-200 overflow-hidden backdrop-blur-xl`}>
+          <div className="max-h-[250px] overflow-y-auto custom-scrollbar py-1">
+            {options.map((opt, idx) => {
+              const val = opt.value !== undefined ? opt.value : opt;
+              const label = opt.label !== undefined ? opt.label : opt;
+              const isSelected = val === value;
+              
+              return (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    onChange({ target: { value: val } });
+                    setIsOpen(false);
+                  }}
+                  className={`px-4 py-2 text-sm font-bold cursor-pointer transition-colors flex items-center justify-between gap-4
+                    ${isSelected ? 'bg-brand-primary/20 text-brand-primary' : 'text-text-main hover:bg-white/5'}`}
+                >
+                  <span className="truncate">{label}</span>
+                  {isSelected && <CheckCircle2 size={12} className="shrink-0" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Badge = ({ status }) => {
   const styles = {
     'Converted': 'bg-brand-primary/20 text-brand-primary border-brand-primary/30',
@@ -144,10 +224,12 @@ const Badge = ({ status }) => {
     'Not Interested': 'bg-rose-500/10 text-rose-500 border-rose-500/30',
     'not interested': 'bg-rose-500/10 text-rose-500 border-rose-500/30',
     'Junk': 'bg-rose-500 text-white border-rose-600 shadow-md shadow-rose-500/20',
-    'Demo Booked': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-black',
+    'Demo Booked': 'bg-brand-primary/10 text-brand-primary border-brand-primary/30 font-black',
     'Proposal Call Booked': 'bg-indigo-500 text-white border-indigo-600 shadow-lg shadow-indigo-500/30 font-black tracking-tight',
     'Proposal Call Booked- Meeting done': 'bg-teal-500 text-white border-teal-600 shadow-md shadow-teal-500/20',
-    'Moved to Funnel': 'bg-[#9fd48a]/20 text-[#9fd48a] border-[#9fd48a]/30',
+    'Moved to Funnel': 'bg-brand-primary/20 text-brand-primary border-brand-primary/30',
+    'dropped': 'bg-rose-500/10 text-rose-500 border-rose-500/30',
+    'closed': 'bg-brand-primary/10 text-brand-primary border-brand-primary/30 font-black',
   };
 
   return (
@@ -157,8 +239,9 @@ const Badge = ({ status }) => {
   );
 };
 
-const LeadStatusTracker = ({ lead, compact = false }) => {
-  const statuses = [
+const LeadStatusTracker = ({ lead, compact = false, customStatuses = null }) => {
+  const [expandedComment, setExpandedComment] = useState(null);
+  const statuses = customStatuses || [
     'Intro-Whatsapp',
     'Intro Done - Phone Call',
     'Intro Done - Whatsapp',
@@ -184,7 +267,7 @@ const LeadStatusTracker = ({ lead, compact = false }) => {
   const isTerminal = nr || junk;
 
   return (
-    <div className={`flex flex-col ${compact ? 'gap-1' : 'gap-4'} w-full overflow-hidden`}>
+    <div className={`flex flex-col ${compact ? 'gap-1' : 'gap-8'} w-full overflow-visible pb-12`}>
       <style>{`
         @keyframes breathing-inner {
           0%, 100% { filter: brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); transform: scale(1); }
@@ -198,14 +281,39 @@ const LeadStatusTracker = ({ lead, compact = false }) => {
           box-shadow: inset 0 0 15px rgba(255,255,255,0.4);
         }
         .flow-effect {
-          background: linear-gradient(90deg, #10b981 0%, #ffffff 50%, #10b981 100%);
+          background: linear-gradient(90deg, #0EA5A4 0%, #ffffff 50%, #0EA5A4 100%);
           background-size: 200% auto;
           animation: flow-line-new 3s linear infinite;
         }
       `}</style>
 
-      {/* Row 1: Circles and Lines */}
-      <div className={`flex items-center ${compact ? 'justify-start' : 'justify-center'} w-full`}>
+      {/* Row 1: Labels (Above) */}
+      {!compact && (
+        <div className={`flex items-start justify-center w-full px-2 transition-all duration-500 ${expandedComment ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
+          {statuses.map((s, idx) => {
+            const { isDone } = getStatusState(s);
+            const isCrossed = isTerminal && s !== 'Never Responded' && s !== 'Junk';
+            const isActive = isDone && !isCrossed;
+            const prevStatuses = statuses.slice(0, idx);
+            const allPrevDone = prevStatuses.every(ps => getStatusState(ps).isDone);
+            const isCurrentStage = !isDone && allPrevDone && !isTerminal;
+
+            return (
+              <React.Fragment key={s}>
+                {idx > 0 && <div className="flex-1 min-w-[25px] max-w-[50px] invisible" />}
+                <div className="w-12 flex flex-col items-center">
+                  <span className={`text-[9px] font-black uppercase tracking-wider text-center w-24 transition-all duration-500 ${isActive ? 'text-brand-primary' : isCurrentStage ? 'text-white' : 'text-slate-600'}`}>
+                    {s.replace('Intro Done - ', '').replace('Intro-', '')}
+                  </span>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Row 2: Circles and Lines */}
+      <div className={`flex items-center ${compact ? 'justify-start' : 'justify-center'} w-full relative z-10 transition-all duration-500 ${expandedComment ? 'opacity-30 scale-95 blur-[1px]' : 'opacity-100 scale-100 blur-0'}`}>
         {statuses.map((s, idx) => {
           const { isDone, comment } = getStatusState(s);
           const isCrossed = isTerminal && s !== 'Never Responded' && s !== 'Junk';
@@ -220,11 +328,11 @@ const LeadStatusTracker = ({ lead, compact = false }) => {
           if (isActive) {
             colorClass = (s === 'Never Responded' || s === 'Junk') 
               ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]' 
-              : 'bg-[#065f46] border-emerald-500/50 text-white shadow-[0_0_20px_rgba(16,185,129,0.2)]';
+              : 'bg-[#0F766E] border-brand-primary/50 text-white shadow-[0_0_20px_rgba(14,165,164,0.2)]';
           } else if (isCrossed) {
             colorClass = 'bg-rose-500/5 border-rose-500/10 text-rose-500/20';
           } else if (isCurrentStage) {
-            colorClass = 'bg-emerald-500/20 border-emerald-500/40 text-white';
+            colorClass = 'bg-transparent border-brand-primary/50 text-brand-primary/70';
           }
 
           return (
@@ -236,74 +344,85 @@ const LeadStatusTracker = ({ lead, compact = false }) => {
                   )}
                 </div>
               )}
-              <div 
-                className={`
-                  ${compact ? 'w-6 h-6' : 'w-12 h-12'} 
-                  rounded-full flex items-center justify-center border-2 shrink-0 relative group
-                  ${colorClass}
-                  ${(isActive || isCurrentStage) ? 'inner-glow' : ''}
-                `}
-              >
+              <div className="relative group/status">
+                {compact && comment && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 px-3 py-2 bg-bg-card border border-border-main rounded-xl shadow-2xl opacity-0 group-hover/status:opacity-100 group-hover/status:-translate-y-1 translate-y-0 pointer-events-none transition-all duration-300 z-[100] w-max max-w-[180px] backdrop-blur-xl">
+                    <p className="text-[10px] font-bold text-text-main leading-tight italic text-center">"{comment}"</p>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1.5 w-3 h-3 bg-bg-card border-r border-b border-border-main rotate-45"></div>
+                  </div>
+                )}
                 <div 
-                  className={(isActive || isCurrentStage) ? 'animate-[breathing-inner_3s_ease-in-out_infinite]' : ''}
-                  style={{ animationDelay: `${idx * 200}ms` }}
+                  className={`
+                    ${compact ? 'w-6 h-6' : 'w-12 h-12'} 
+                    rounded-full flex items-center justify-center border-2 shrink-0 
+                    ${colorClass}
+                    ${(isActive || isCurrentStage) ? 'inner-glow' : ''}
+                  `}
                 >
-                  {isCrossed ? (
-                    <X size={compact ? 12 : 20} strokeWidth={3} />
-                  ) : (isDone || isCurrentStage) ? (
-                    s.includes('Whatsapp') ? <WhatsappLogo size={compact ? 12 : 24} color="white" /> :
-                    s.includes('Phone') ? <PhoneLogo size={compact ? 12 : 24} color="white" /> :
-                    isDnp ? <DnpLogo size={compact ? 12 : 24} color="white" /> :
-                    s === 'Junk' ? <JunkLogo size={compact ? 12 : 24} color="white" /> :
-                    s === 'Never Responded' ? <NeverRespondedLogo size={compact ? 12 : 24} color="white" /> :
-                    <CheckCircle2 size={compact ? 12 : 24} strokeWidth={3} />
-                  ) : (
-                    <div className={`rounded-full ${compact ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} bg-slate-700`}></div>
-                  )}
-                </div>
-              </div>
-              
-              {(isDnp && comment) && (
-                <div className="absolute bottom-full mb-12 hidden group-hover:block z-[200] animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="bg-[#0b141a]/95 text-white text-[10px] p-4 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[180px] text-center backdrop-blur-2xl">
-                    <p className="text-emerald-400 font-black uppercase tracking-widest mb-2 border-b border-white/10 pb-2">{s} Intelligence</p>
-                    <p className="font-bold leading-relaxed italic">"{comment}"</p>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-[#0b141a]"></div>
+                  <div 
+                    className={(isActive || isCurrentStage) ? 'animate-[breathing-inner_3s_ease-in-out_infinite]' : ''}
+                    style={{ animationDelay: `${idx * 200}ms` }}
+                  >
+                    {isCrossed ? (
+                      <X size={compact ? 12 : 20} strokeWidth={3} />
+                    ) : (isDone || isCurrentStage) ? (
+                      s.includes('Whatsapp') ? <WhatsappLogo size={compact ? 12 : 24} color="white" /> :
+                      s.includes('Phone') ? <PhoneLogo size={compact ? 12 : 24} color="white" /> :
+                      isDnp ? <DnpLogo size={compact ? 12 : 24} color="white" /> :
+                      s === 'Junk' ? <JunkLogo size={compact ? 12 : 24} color="white" /> :
+                      s === 'Never Responded' ? <NeverRespondedLogo size={compact ? 12 : 24} color="white" /> :
+                      <CheckCircle2 size={compact ? 12 : 24} strokeWidth={3} />
+                    ) : (
+                      <div className={`rounded-full ${compact ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} bg-slate-700`}></div>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
             </React.Fragment>
           );
         })}
       </div>
 
-      {/* Row 2: Labels */}
+      {/* Row 3: Comments Below Circles */}
       {!compact && (
-        <div className="flex items-start justify-center w-full px-2">
+        <div className="flex items-start justify-center w-full px-2 relative z-30">
           {statuses.map((s, idx) => {
-            const { isDone } = getStatusState(s);
-            const isCrossed = isTerminal && s !== 'Never Responded' && s !== 'Junk';
-            const isActive = isDone && !isCrossed;
-            const prevStatuses = statuses.slice(0, idx);
-            const allPrevDone = prevStatuses.every(ps => getStatusState(ps).isDone);
-            const isCurrentStage = !isDone && allPrevDone && !isTerminal;
+            const { comment } = getStatusState(s);
+            const isExpanded = expandedComment === s;
 
             return (
               <React.Fragment key={s}>
                 {idx > 0 && <div className="flex-1 min-w-[25px] max-w-[50px] invisible" />}
-                <div className="w-12 flex flex-col items-center">
-                  <span className={`text-[9px] font-black uppercase tracking-wider text-center w-24 transition-all duration-500 ${isActive ? 'text-emerald-400' : isCurrentStage ? 'text-white' : 'text-slate-600'}`}>
-                    {s.replace('Intro Done - ', '').replace('Intro-', '')}
-                  </span>
+                <div className={`w-12 flex flex-col items-center transition-all duration-500 ${expandedComment && !isExpanded ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'}`}>
+                  {comment ? (
+                    <button
+                      onClick={() => setExpandedComment(isExpanded ? null : s)}
+                      className={`
+                        text-[8px] font-black text-center py-1.5 px-3 rounded-full border transition-all duration-500 leading-tight
+                        ${isExpanded
+                          ? 'bg-brand-primary/20 border-brand-primary text-brand-primary w-48 z-50 relative shadow-[0_0_30px_rgba(14,165,164,0.3)] scale-125 translate-y-2 animate-in zoom-in-95 duration-300'
+                          : 'bg-bg-main/80 border-border-main text-text-muted hover:border-brand-primary/40 hover:text-text-main w-24 hover:scale-110 active:scale-95 shadow-sm'}
+                      `}
+                    >
+                      {isExpanded
+                        ? <span className="whitespace-normal break-words italic text-[10px] drop-shadow-sm">"{comment}"</span>
+                        : <span className="truncate block w-full uppercase tracking-tighter">{comment.length > 10 ? comment.substring(0, 9) + '…' : comment}</span>
+                      }
+                    </button>
+                  ) : (
+                    <div className="h-5" />
+                  )}
                 </div>
               </React.Fragment>
             );
           })}
         </div>
       )}
+
     </div>
   );
 };
+
 
 
 const LinkedinLogo = () => (
@@ -316,6 +435,12 @@ const UpworkLogo = () => (
 
 const CompanyLogo = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h.01"/><path d="M9 12h.01"/><path d="M9 15h.01"/><path d="M13 13h.01"/><path d="M13 16h.01"/><path d="M17 17h.01"/></svg>
+);
+
+const BoostedIcon = ({ size = 10, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M23.5 1.5L14.5 1.5V4.5H19.5L14.5 10.5L11.5 7.5L0.5 18.5V22.5H23.5V1.5ZM3.5 20.5H5.5V16.5H3.5V20.5ZM8.5 20.5H10.5V13.5H8.5V20.5ZM13.5 20.5H15.5V12.5H13.5V20.5ZM18.5 20.5H20.5V8.5H18.5V20.5Z"/>
+  </svg>
 );
 
 const LoadingAnimation = () => (
@@ -373,8 +498,8 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0b141a] flex items-center justify-center p-8">
-          <div className="max-w-lg w-full bg-[#182229] p-10 rounded-[32px] border border-white/10 shadow-2xl text-center">
+        <div className="min-h-screen bg-[#000000] flex items-center justify-center p-8">
+          <div className="max-w-lg w-full bg-[#0a0a0a] p-10 rounded-[32px] border border-white/10 shadow-2xl text-center">
             <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 animate-pulse">
               <AlertCircle size={40} />
             </div>
@@ -382,7 +507,7 @@ class ErrorBoundary extends React.Component {
             <p className="text-sm text-[#8696a0] font-medium leading-relaxed mb-6">
               A component crashed during rendering. See the error below.
             </p>
-            <div className="bg-[#0b141a] rounded-xl p-4 mb-6 text-left border border-rose-500/20 max-h-36 overflow-y-auto">
+            <div className="bg-[#000000] rounded-xl p-4 mb-6 text-left border border-rose-500/20 max-h-36 overflow-y-auto">
               <p className="text-rose-400 text-xs font-mono font-bold break-all">
                 {this.state.error?.message || 'Unknown error'}
               </p>
@@ -416,25 +541,36 @@ class ErrorBoundary extends React.Component {
 }
 
 
-const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
-  const COLORS = ['#00a884', '#3b82f6', '#f59e0b', '#f43f5e', '#8b5cf6'];
-  const LI_COLORS = ['#0a66c2', '#00a884', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#ec4899'];
+const SourceAnalytics = ({ 
+  leads, currentView, mainLeads = [], 
+  activeAccount, setActiveAccount, linkedInAccounts, 
+  activeAccountDropdown, setActiveAccountDropdown, setShowAccountModal,
+  activeDashboardDropdown, setActiveDashboardDropdown
+}) => {
+
+  const COLORS = ['#0EA5A4', '#3b82f6', '#f59e0b', '#f43f5e', '#8b5cf6'];
+  const LI_COLORS = ['#0a66c2', '#0EA5A4', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#ec4899'];
   const [metaFilter, setMetaFilter] = useState('All');
   const [liFilter, setLiFilter] = useState('All');
   const LI_FILTER_STATUSES = ['All', 'Moved to Funnel', 'Moved to FollowUp', 'No Response', '1st msg', '2nd msg', '3rd msg', '4th msg', 'Mailed', 'Not intrested'];
   
   // Localized Pipeline Composition Data for Current View
-  const sourceLeads = leads.filter(l => l.source === currentView);
-  const statusCounts = sourceLeads.reduce((acc, lead) => {
-    const status = lead.status || 'New';
-    acc[status] = (acc[status] || 0) + 1;
-    return acc;
-  }, {});
+  const sourceLeads = useMemo(() => leads.filter(l => 
+    l.source === currentView && 
+    (currentView !== 'Linkedin' || activeAccount === 'All Accounts' || l.linkedInAccount === activeAccount)
+  ), [leads, currentView, activeAccount]);
 
-  const sourceData = Object.keys(statusCounts).map(status => ({
-    name: status,
-    value: statusCounts[status]
-  })).sort((a, b) => b.value - a.value);
+  const sourceData = useMemo(() => {
+    const counts = sourceLeads.reduce((acc, lead) => {
+      const status = lead.status || 'New';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.keys(counts).map(status => ({
+      name: status,
+      value: counts[status]
+    })).sort((a, b) => b.value - a.value);
+  }, [sourceLeads]);
   
   const renderStatusTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -450,48 +586,54 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
 
   // ─── LINKEDIN-SPECIFIC ANALYTICS ─────────────────────────
   if (currentView === 'Linkedin') {
-    // LinkedIn Outreach Status Distribution
-    const liStatuses = ['Moved to Funnel', 'Moved to FollowUp', 'No Response', '1st msg', '2nd msg', '3rd msg', '4th msg', 'Mailed', 'Not intrested'];
-    const liStatusCounts = {};
-    sourceLeads.forEach(l => {
-      const st = l.status || 'New';
-      if (liStatuses.includes(st)) {
-        liStatusCounts[st] = (liStatusCounts[st] || 0) + 1;
-      } else {
-        liStatusCounts['Other'] = (liStatusCounts['Other'] || 0) + 1;
-      }
-    });
-    const liStatusData = Object.keys(liStatusCounts).map(key => ({
-      name: key,
-      count: liStatusCounts[key]
-    })).sort((a, b) => b.count - a.count);
+    const liStatusData = useMemo(() => {
+      const liStatuses = ['Moved to Funnel', 'Moved to FollowUp', 'No Response', '1st msg', '2nd msg', '3rd msg', '4th msg', 'Mailed', 'Not intrested'];
+      const counts = {};
+      sourceLeads.forEach(l => {
+        const st = l.status || 'New';
+        if (liStatuses.includes(st)) {
+          counts[st] = (counts[st] || 0) + 1;
+        } else {
+          counts['Other'] = (counts['Other'] || 0) + 1;
+        }
+      });
+      return Object.keys(counts).map(key => ({
+        name: key,
+        count: counts[key]
+      })).sort((a, b) => b.count - a.count);
+    }, [sourceLeads]);
 
     // Employee Size Distribution
-    const sizeCounts = {};
-    sourceLeads.forEach(l => {
-      const size = (l.employeeSize && l.employeeSize !== '-') ? l.employeeSize.toString().trim() : 'Unknown';
-      sizeCounts[size] = (sizeCounts[size] || 0) + 1;
-    });
-    const sizeData = Object.keys(sizeCounts).map(key => ({
-      name: key,
-      value: sizeCounts[key]
-    })).sort((a, b) => b.value - a.value).slice(0, 7);
+    const sizeData = useMemo(() => {
+      const counts = {};
+      sourceLeads.forEach(l => {
+        const size = (l.employeeSize && l.employeeSize !== '-') ? l.employeeSize.toString().trim() : 'Unknown';
+        counts[size] = (counts[size] || 0) + 1;
+      });
+      return Object.keys(counts).map(key => ({
+        name: key,
+        value: counts[key]
+      })).sort((a, b) => b.value - a.value).slice(0, 7);
+    }, [sourceLeads]);
 
-    // LinkedIn Outreach Funnel
-    const liTotal = sourceLeads.length;
-    const liAccepted = sourceLeads.filter(l => l.acceptanceDate && l.acceptanceDate !== '-' && l.acceptanceDate !== '').length;
-    const liResponded = sourceLeads.filter(l => ['Moved to Funnel', 'Moved to FollowUp', 'Not intrested'].includes(l.status)).length;
-    const liMovedToFunnel = sourceLeads.filter(l => l.status === 'Moved to Funnel').length;
-    const liMovedToFollowUp = sourceLeads.filter(l => l.status === 'Moved to FollowUp').length;
+    const liFunnelData = useMemo(() => {
+      const accepted = sourceLeads.filter(l => l.acceptanceDate && l.acceptanceDate !== '-' && l.acceptanceDate !== '').length;
+      const responded = sourceLeads.filter(l => ['Moved to Funnel', 'Moved to FollowUp', 'Not intrested'].includes(l.status)).length;
+      const movedToFunnel = sourceLeads.filter(l => l.status === 'Moved to Funnel').length;
+      return [
+        { name: 'Requests Sent', count: sourceLeads.length },
+        { name: 'Accepted', count: accepted },
+        { name: 'Responded', count: responded },
+        { name: 'Moved to Funnel', count: movedToFunnel }
+      ];
+    }, [sourceLeads]);
 
-    const liFunnelData = [
-      { name: 'Requests Sent', count: liTotal },
-      { name: 'Accepted', count: liAccepted },
-      { name: 'Responded', count: liResponded },
-      { name: 'Moved to Funnel', count: liMovedToFunnel }
-    ];
+    // LinkedIn KPI Calculations (Derived from memoized funnel data)
+    const liTotal = liFunnelData[0].count;
+    const liAccepted = liFunnelData[1].count;
+    const liResponded = liFunnelData[2].count;
+    const liMovedToFunnel = liFunnelData[3].count;
 
-    // LinkedIn KPI Calculations
     const acceptanceRate = liTotal > 0 ? Math.round((liAccepted / liTotal) * 100) : 0;
     const responseRate = liAccepted > 0 ? Math.round((liResponded / liAccepted) * 100) : 0;
     const funnelConvRate = liTotal > 0 ? Math.round((liMovedToFunnel / liTotal) * 100) : 0;
@@ -502,7 +644,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
         const idx = liFunnelData.findIndex(d => d.name === data.name);
         const prev = idx > 0 ? liFunnelData[idx - 1].count : data.count;
         const passRate = prev > 0 ? Math.round((data.count / prev) * 100) : 0;
-        const totalYield = liTotal > 0 ? Math.round((data.count / liTotal) * 100) : 0;
+        const totalYield = liFunnelData[0].count > 0 ? Math.round((data.count / liFunnelData[0].count) * 100) : 0;
         return (
           <div className="bg-bg-card p-4 rounded-2xl border border-border-main shadow-2xl">
             <p className="text-[10px] font-black uppercase text-text-muted mb-2 tracking-widest">{data.name}</p>
@@ -549,34 +691,110 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
           <div className="h-px bg-border-main flex-1 hidden sm:block"></div>
         </div>
 
-        {/* LinkedIn Status Filter Bar */}
-        <div className="flex items-center gap-4 mb-6 bg-bg-card p-3 rounded-2xl border border-border-main shadow-xs">
-          <span className="text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0 pl-2">Filter by Status:</span>
-          <select
-            value={liFilter}
-            onChange={(e) => setLiFilter(e.target.value)}
-            className="flex-1 max-w-xs px-4 py-2.5 rounded-xl border border-border-main bg-bg-main text-xs font-black text-text-main outline-none focus:border-[#0a66c2] cursor-pointer appearance-none transition-all"
-          >
-            {LI_FILTER_STATUSES.map(s => (
-              <option key={s} value={s}>{s === 'All' ? '✦ All Statuses' : s}</option>
-            ))}
-          </select>
+        {/* LinkedIn Status & Account Filter Bar */}
+        <div className="flex flex-wrap items-center gap-4 mb-6 bg-bg-card p-3 rounded-2xl border border-border-main shadow-xs">
+          {/* Sender ID Filter (Custom Dropdown) */}
+          {linkedInAccounts.length > 1 && (
+            <div className="relative flex items-center gap-3 bg-bg-main px-4 py-2 rounded-xl border border-border-main">
+              <span className="text-[9px] font-black text-text-muted uppercase tracking-widest shrink-0">Sender ID:</span>
+              <button 
+                onClick={() => setActiveAccountDropdown(!activeAccountDropdown)}
+                className="flex items-center gap-4 text-[10px] font-black text-text-main hover:text-brand-primary transition-colors uppercase tracking-widest min-w-[140px] justify-between"
+              >
+                {activeAccount}
+                <ChevronDown size={14} className={`transition-transform duration-300 ${activeAccountDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {activeAccountDropdown && (
+                <div className="absolute top-full mt-2 left-0 right-0 z-[120] bg-bg-card border border-border-main rounded-3xl shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                    {linkedInAccounts.map((acc) => (
+                      <button
+                        key={acc}
+                        onClick={() => {
+                          setActiveAccount(acc);
+                          setActiveAccountDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all
+                          ${activeAccount === acc 
+                            ? 'bg-brand-primary text-white shadow-lg' 
+                            : 'text-text-muted hover:bg-bg-main hover:text-text-main'}`}
+                      >
+                        {acc}
+                      </button>
+                    ))}
+                    <div className="border-t border-border-main mt-1 pt-1">
+                      <button 
+                        onClick={() => {
+                          setShowAccountModal(true);
+                          setActiveAccountDropdown(false);
+                        }}
+                        className="w-full text-left px-4 py-3 rounded-xl text-[10px] font-black text-brand-primary uppercase tracking-widest hover:bg-brand-primary/10 transition-all"
+                      >
+                        + REGISTER NEW SENDER
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Vertical Divider */}
+          <div className="h-8 w-px bg-border-main hidden md:block"></div>
+
+          {/* Status Filter (Custom Dropdown) */}
+          <div className="relative flex items-center gap-3 bg-bg-main px-4 py-2 rounded-xl border border-border-main">
+            <span className="text-[9px] font-black text-text-muted uppercase tracking-widest shrink-0">Status:</span>
+            <button 
+              onClick={() => setActiveDashboardDropdown(activeDashboardDropdown === 'status-filter' ? null : 'status-filter')}
+              className="flex items-center gap-4 text-[10px] font-black text-text-main hover:text-brand-primary transition-colors uppercase tracking-widest min-w-[140px] justify-between"
+            >
+              {liFilter === 'All' ? '✦ All Statuses' : liFilter}
+              <ChevronDown size={14} className={`transition-transform duration-300 ${activeDashboardDropdown === 'status-filter' ? 'rotate-180' : ''}`} />
+            </button>
+
+            {activeDashboardDropdown === 'status-filter' && (
+              <div className="absolute top-full mt-2 left-0 right-0 z-[120] bg-bg-card border border-border-main rounded-3xl shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                  {LI_FILTER_STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        setLiFilter(s);
+                        setActiveDashboardDropdown(null);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all
+                        ${liFilter === s 
+                          ? 'bg-brand-primary text-white shadow-lg' 
+                          : 'text-text-muted hover:bg-bg-main hover:text-text-main'}`}
+                    >
+                      {s === 'All' ? '✦ All Statuses' : s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {liFilter !== 'All' && (
             <button
               onClick={() => setLiFilter('All')}
-              className="px-4 py-2 bg-[#0a66c2]/10 text-[#0a66c2] border border-[#0a66c2]/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#0a66c2] hover:text-white transition-all"
+              className="px-6 py-2.5 bg-[#0a66c2]/10 text-[#0a66c2] border border-[#0a66c2]/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#0a66c2] hover:text-white transition-all shadow-sm"
             >
               Clear Filter
             </button>
           )}
+
           {liFilter !== 'All' && (
-            <div className="ml-auto flex items-center gap-3 px-4 py-2 bg-bg-main rounded-xl border border-border-main">
+            <div className="ml-auto hidden sm:flex items-center gap-3 px-4 py-2 bg-bg-main rounded-xl border border-border-main shadow-inner">
               <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Showing</span>
               <span className="text-lg font-black text-[#0a66c2]">{liFilteredCount}</span>
               <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">of {liTotal}</span>
             </div>
           )}
         </div>
+
 
         {/* LinkedIn Charts container with fluid roll-up/down transition */}
         <div className={`transition-all duration-700 ease-in-out overflow-hidden ${
@@ -590,7 +808,31 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={sourceData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" stroke="none">
+                    <Pie 
+                      data={sourceData} 
+                      cx="50%" 
+                      cy="50%" 
+                      innerRadius={60} 
+                      outerRadius={90} 
+                      paddingAngle={5} 
+                      dataKey="value" 
+                      stroke="none"
+                      isAnimationActive={false}
+                      labelLine={{ stroke: '#334155', strokeWidth: 1 }}
+                      label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
+                        const RADIAN = Math.PI / 180;
+                        const radius = outerRadius * 1.35;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        if (!name || name === '-' || name === '---' || percent < 0.01) return null;
+                        const displayName = name.length > 12 ? name.substring(0, 10) + '..' : name;
+                        return (
+                          <text x={x} y={y} fill="#8696a0" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={8} fontWeight="900" className="uppercase tracking-widest">
+                            {displayName} ({Math.round(percent * 100)}%)
+                          </text>
+                        );
+                      }}
+                    >
                       {sourceData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -612,7 +854,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
                     <XAxis dataKey="name" tick={{ fill: '#8696a0', fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} tickFormatter={(value) => value.substring(0, 10) + '...'} />
                     <YAxis tick={{ fill: '#8696a0', fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} />
                     <RechartsTooltip content={renderStatusTooltip} cursor={{ fill: 'rgba(10, 102, 194, 0.05)' }} />
-                    <Bar dataKey="count" fill="#0a66c2" radius={[6, 6, 0, 0]} barSize={30}>
+                    <Bar dataKey="count" fill="#0a66c2" radius={[6, 6, 0, 0]} barSize={30} isAnimationActive={false} label={{ position: 'top', fill: '#8696a0', fontSize: 9, fontWeight: 900 }}>
                       {liStatusData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={LI_COLORS[(index + 1) % LI_COLORS.length]} />
                       ))}
@@ -629,7 +871,30 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
                 {sizeData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={sizeData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none">
+                      <Pie 
+                        data={sizeData} 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={50} 
+                        outerRadius={80} 
+                        paddingAngle={4} 
+                        dataKey="value" 
+                        stroke="none"
+                        isAnimationActive={false}
+                        labelLine={{ stroke: '#334155', strokeWidth: 1 }}
+                        label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
+                          const RADIAN = Math.PI / 180;
+                          const radius = outerRadius * 1.35;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          if (!name || name === 'Unknown' || percent < 0.01) return null;
+                          return (
+                            <text x={x} y={y} fill="#8696a0" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={8} fontWeight="900" className="uppercase tracking-widest">
+                              {name} ({Math.round(percent * 100)}%)
+                            </text>
+                          );
+                        }}
+                      >
                         {sizeData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={LI_COLORS[index % LI_COLORS.length]} />
                         ))}
@@ -656,7 +921,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
                     <XAxis type="number" hide />
                     <YAxis dataKey="name" type="category" tick={{ fill: '#8696a0', fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} width={120} />
                     <RechartsTooltip content={renderLiFunnelTooltip} cursor={{ fill: 'rgba(10, 102, 194, 0.05)' }} />
-                    <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={25}>
+                    <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={25} isAnimationActive={false} label={{ position: 'right', fill: '#8696a0', fontSize: 9, fontWeight: 900 }}>
                       {liFunnelData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={LI_COLORS[index % LI_COLORS.length]} />
                       ))}
@@ -669,13 +934,13 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
         </div>
 
         {/* Overview of LinkedIn outreach activity / Segment Scorecards */}
-        <div className="mt-8 mb-6 animate-fade-in-up">
+        <div className="mt-8 mb-6">
           <h2 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] mb-6 select-none">
             {liFilter !== 'All' ? 'Segment Performance Scorecard' : 'Overview of your LinkedIn outreach activity'}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Current Volume */}
-            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#0a66c2]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0">
+            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#0a66c2]/30 transition-all duration-300 relative overflow-hidden">
               <div className="absolute inset-0 bg-[#0a66c2]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative z-10">
                 <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{liFilter !== 'All' ? 'Current Volume' : 'Invites Sent'}</p>
@@ -692,24 +957,24 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
             </div>
 
             {/* Response Success / Accepted Requests */}
-            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#00a884]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-100">
-              <div className="absolute inset-0 bg-[#00a884]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#0EA5A4]/30 transition-all duration-300 relative overflow-hidden">
+              <div className="absolute inset-0 bg-[#0EA5A4]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative z-10">
                 <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{liFilter !== 'All' ? 'Segment Weight' : 'Accepted Requests'}</p>
                 <h3 className="text-4xl font-black text-text-main tracking-tight">
                   {liFilter !== 'All' ? `${Math.round((liFilteredCount / liTotal) * 100)}%` : liAccepted.toLocaleString()}
                 </h3>
-                <p className="text-[11px] text-[#00a884] font-black mt-1">
+                <p className="text-[11px] text-[#0EA5A4] font-black mt-1">
                   {liFilter !== 'All' ? 'Of LinkedIn pipeline' : `${acceptanceRate}% acceptance rate`}
                 </p>
               </div>
-              <div className="bg-[#00a884]/10 dark:bg-white/10 p-4 rounded-2xl text-[#00a884] shadow-lg border border-[#00a884]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
+              <div className="bg-[#0EA5A4]/10 dark:bg-white/10 p-4 rounded-2xl text-[#0EA5A4] shadow-lg border border-[#0EA5A4]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
                 <CheckCircle2 size={24} strokeWidth={2.5} />
               </div>
             </div>
 
             {/* Tactical Metric: Dormant Leads */}
-            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#f59e0b]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-200">
+            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#f59e0b]/30 transition-all duration-300 relative overflow-hidden">
               <div className="absolute inset-0 bg-[#f59e0b]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative z-10">
                 <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{liFilter !== 'All' ? 'Dormant Leads' : 'Total Follow-ups'}</p>
@@ -726,7 +991,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
             </div>
 
             {/* Tactical Metric: Recent Momentum */}
-            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#8b5cf6]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-300">
+            <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#8b5cf6]/30 transition-all duration-300 relative overflow-hidden">
               <div className="absolute inset-0 bg-[#8b5cf6]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative z-10">
                 <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{liFilter !== 'All' ? 'Recent Momentum' : 'Total Replies'}</p>
@@ -756,7 +1021,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
     'Demo Booked', 'Demo Booked - No show',
     'Proposal Call Booked', 'Proposal Call booked- No show',
     'Proposal Call Booked- Meeting done', 'Proposal Call booked- Potential Pipeline- Stopped responding',
-    'not interested', 'Junk', 'Junk lead'
+    'not interested', 'Junk', 'Junk lead', 'MOVE TO PIPELINE'
   ];
 
   const totalMetaLeads = sourceLeads.length;
@@ -765,26 +1030,30 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
   const filteredPercent = totalMetaLeads > 0 ? Math.round((filteredCount / totalMetaLeads) * 100) : 0;
 
   // Filtered Status Distribution
-  const fStatusCounts = filteredLeads.reduce((acc, lead) => {
-    const status = lead.status || 'New';
-    acc[status] = (acc[status] || 0) + 1;
-    return acc;
-  }, {});
-  const fStatusData = Object.keys(fStatusCounts).map(key => ({
-    name: key,
-    count: fStatusCounts[key]
-  })).sort((a, b) => b.count - a.count).slice(0, 5);
+  const fStatusData = useMemo(() => {
+    const counts = filteredLeads.reduce((acc, lead) => {
+      const status = lead.status || 'New';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.keys(counts).map(key => ({
+      name: key,
+      count: counts[key]
+    })).sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [filteredLeads]);
 
   // Attrition from filtered leads
-  const attritionStatuses = ['DNP 1', 'DNP 2', 'DNP 3', 'DNP 4', 'Never Responded', 'not interested', 'Junk', 'Demo Booked - No show', 'Proposal Call booked- No show', 'Proposal Call booked- Potential Pipeline- Stopped responding'];
-  const attritionCounts = filteredLeads.filter(l => attritionStatuses.includes(l.status)).reduce((acc, lead) => {
-    acc[lead.status] = (acc[lead.status] || 0) + 1;
-    return acc;
-  }, {});
-  const attritionData = Object.keys(attritionCounts).map(key => ({
-    name: key,
-    value: attritionCounts[key]
-  })).sort((a,b) => b.value - a.value).slice(0, 5);
+  const attritionData = useMemo(() => {
+    const attritionStatuses = ['DNP 1', 'DNP 2', 'DNP 3', 'DNP 4', 'Never Responded', 'not interested', 'Junk', 'Demo Booked - No show', 'Proposal Call booked- No show', 'Proposal Call booked- Potential Pipeline- Stopped responding'];
+    const counts = filteredLeads.filter(l => attritionStatuses.includes(l.status)).reduce((acc, lead) => {
+      acc[lead.status] = (acc[lead.status] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.keys(counts).map(key => ({
+      name: key,
+      value: counts[key]
+    })).sort((a,b) => b.value - a.value).slice(0, 5);
+  }, [filteredLeads]);
 
   // ─── MAIN LEADS PERFORMANCE (FOR CARDS) ─────────────────────────
   const outreachLeads = mainLeads.length > 0 ? mainLeads : [];
@@ -817,19 +1086,22 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
   }).length;
 
   // ─── RECONSTRUCT FUNNEL DATA (FOR CHARTS) ─────────────────────────
-  const demosList = ['Demo Booked', 'Demo Booked - No show'];
-  const proposalsList = ['Proposal Call Booked', 'Proposal Call booked- No show', 'Proposal Call Booked- Meeting done', 'Proposal Call booked- Potential Pipeline- Stopped responding'];
-  
-  const fProposals = sourceLeads.filter(l => proposalsList.includes(l.status)).length;
-  const fDemos = sourceLeads.filter(l => demosList.includes(l.status)).length + fProposals;
-  const fEngaged = sourceLeads.filter(l => introsList.includes(l.status)).length + fDemos;
+  const funnelData = useMemo(() => {
+    const introsList = ['Intro-Whatsapp', 'Intro Done - Phone Call', 'Intro Done - Whatsapp', 'FUP'];
+    const demosList = ['Demo Booked', 'Demo Booked - No show'];
+    const proposalsList = ['Proposal Call Booked', 'Proposal Call booked- No show', 'Proposal Call Booked- Meeting done', 'Proposal Call booked- Potential Pipeline- Stopped responding'];
+    
+    const proposals = sourceLeads.filter(l => proposalsList.includes(l.status)).length;
+    const demos = sourceLeads.filter(l => demosList.includes(l.status)).length + proposals;
+    const engaged = sourceLeads.filter(l => introsList.includes(l.status)).length + demos;
 
-  const funnelData = [
-    { name: 'Universe', count: sourceLeads.length },
-    { name: 'Engaged', count: fEngaged },
-    { name: 'Demos Booked', count: fDemos },
-    { name: 'Proposals', count: fProposals }
-  ];
+    return [
+      { name: 'Universe', count: sourceLeads.length },
+      { name: 'Engaged', count: engaged },
+      { name: 'Demos Booked', count: demos },
+      { name: 'Proposals', count: proposals }
+    ];
+  }, [sourceLeads]);
 
   const renderFunnelTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -870,15 +1142,13 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
       {/* Status Filter Bar */}
       <div className="flex items-center gap-4 mb-6 bg-bg-card p-3 rounded-2xl border border-border-main shadow-xs">
         <span className="text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0 pl-2">Filter by Status:</span>
-        <select
+        <CustomSelect
           value={metaFilter}
           onChange={(e) => setMetaFilter(e.target.value)}
-          className="flex-1 max-w-xs px-4 py-2.5 rounded-xl border border-border-main bg-bg-main text-xs font-black text-text-main outline-none focus:border-brand-primary cursor-pointer appearance-none transition-all"
-        >
-          {META_FILTER_STATUSES.map(s => (
-            <option key={s} value={s}>{s === 'All' ? '✦ All Statuses' : s}</option>
-          ))}
-        </select>
+          options={META_FILTER_STATUSES.map(s => ({ value: s, label: s === 'All' ? '✦ All Statuses' : s }))}
+          className="flex-1 max-w-xs"
+          triggerClassName="px-4 py-2.5 rounded-xl border border-border-main bg-bg-main text-xs font-black text-text-main outline-none focus:border-brand-primary"
+        />
         {metaFilter !== 'All' && (
           <button
             onClick={() => setMetaFilter('All')}
@@ -908,7 +1178,31 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
             <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={sourceData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" stroke="none">
+                  <Pie 
+                    data={sourceData} 
+                    cx="50%" 
+                    cy="50%" 
+                    innerRadius={60} 
+                    outerRadius={90} 
+                    paddingAngle={5} 
+                    dataKey="value" 
+                    stroke="none"
+                    isAnimationActive={false}
+                    labelLine={{ stroke: '#334155', strokeWidth: 1 }}
+                    label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = outerRadius * 1.35;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      if (!name || name === '-' || name === '---' || percent < 0.01) return null;
+                      const displayName = name.length > 12 ? name.substring(0, 10) + '..' : name;
+                      return (
+                        <text x={x} y={y} fill="#8696a0" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={8} fontWeight="900" className="uppercase tracking-widest">
+                          {displayName} ({Math.round(percent * 100)}%)
+                        </text>
+                      );
+                    }}
+                  >
                     {sourceData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -929,7 +1223,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
                   <XAxis dataKey="name" tick={{ fill: '#8696a0', fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} tickFormatter={(value) => value.substring(0, 10) + '...'} />
                   <YAxis tick={{ fill: '#8696a0', fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} />
                   <RechartsTooltip content={renderStatusTooltip} cursor={{ fill: 'rgba(0, 168, 132, 0.05)' }} />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={30}>
+                  <Bar dataKey="count" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={30} isAnimationActive={false} label={{ position: 'top', fill: '#8696a0', fontSize: 9, fontWeight: 900 }}>
                     {fStatusData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[(index + 1) % COLORS.length]} />
                     ))}
@@ -945,7 +1239,31 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
               {attritionData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={attritionData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
+                    <Pie 
+                      data={attritionData} 
+                      cx="50%" 
+                      cy="50%" 
+                      innerRadius={50} 
+                      outerRadius={80} 
+                      paddingAngle={5} 
+                      dataKey="value" 
+                      stroke="none"
+                      isAnimationActive={false}
+                      labelLine={{ stroke: '#334155', strokeWidth: 1 }}
+                      label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
+                        const RADIAN = Math.PI / 180;
+                        const radius = outerRadius * 1.35;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        if (!name || name === '-' || percent < 0.01) return null;
+                        const displayName = name.length > 12 ? name.substring(0, 10) + '..' : name;
+                        return (
+                          <text x={x} y={y} fill="#8696a0" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={8} fontWeight="900" className="uppercase tracking-widest">
+                            {displayName} ({Math.round(percent * 100)}%)
+                          </text>
+                        );
+                      }}
+                    >
                       {attritionData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
                       ))}
@@ -971,7 +1289,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
                   <XAxis type="number" hide />
                   <YAxis dataKey="name" type="category" tick={{ fill: '#8696a0', fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} />
                   <RechartsTooltip content={renderFunnelTooltip} cursor={{ fill: 'rgba(0, 168, 132, 0.05)' }} />
-                  <Bar dataKey="count" fill="#00a884" radius={[0, 6, 6, 0]} barSize={25}>
+                  <Bar dataKey="count" fill="#0EA5A4" radius={[0, 6, 6, 0]} barSize={25} isAnimationActive={false} label={{ position: 'right', fill: '#8696a0', fontSize: 9, fontWeight: 900 }}>
                     {funnelData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -986,14 +1304,14 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
 
 
       {/* Macro Funnel Overview / Segment Scorecards */}
-      <div className="mt-8 mb-6 animate-fade-in-up">
+      <div className="mt-8 mb-6">
         <h2 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] mb-6 select-none">
           {metaFilter !== 'All' ? 'Segment Performance Scorecard' : 'Outreach Performance Scorecard'}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Main Metric */}
-          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#00a884]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0">
-            <div className="absolute inset-0 bg-[#00a884]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#0EA5A4]/30 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute inset-0 bg-[#0EA5A4]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
               <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Current Volume' : 'Total Main Universe'}</p>
               <h3 className="text-4xl font-black text-text-main tracking-tight">
@@ -1003,13 +1321,13 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
                 {metaFilter !== 'All' ? 'Leads in active focus' : 'People in Outreach phase'}
               </p>
             </div>
-            <div className="bg-[#00a884]/10 dark:bg-white/10 p-4 rounded-2xl text-[#00a884] shadow-lg border border-[#00a884]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
+            <div className="bg-[#0EA5A4]/10 dark:bg-white/10 p-4 rounded-2xl text-[#0EA5A4] shadow-lg border border-[#0EA5A4]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
               {metaFilter !== 'All' ? <Users size={24} strokeWidth={2.5} /> : <Database size={24} strokeWidth={2.5} />}
             </div>
           </div>
 
           {/* Engagement Status */}
-          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#3b82f6]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-100">
+          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#3b82f6]/30 transition-all duration-300 relative overflow-hidden">
             <div className="absolute inset-0 bg-[#3b82f6]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
               <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Segment Weight' : 'Initial Engagement'}</p>
@@ -1027,7 +1345,7 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
           </div>
 
           {/* Dormant Leads Tracking */}
-          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#f59e0b]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-200">
+          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#f59e0b]/30 transition-all duration-300 relative overflow-hidden">
             <div className="absolute inset-0 bg-[#f59e0b]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
               <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Dormant Leads' : 'Active Nurturing'}</p>
@@ -1044,18 +1362,18 @@ const SourceAnalytics = ({ leads, currentView, mainLeads = [] }) => {
           </div>
 
           {/* Recent Momentum Tracking */}
-          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#00a884]/30 transition-all duration-300 relative overflow-hidden animate-zoom-fade opacity-0 delay-300">
-            <div className="absolute inset-0 bg-[#00a884]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="bg-bg-card p-6 rounded-[32px] border border-border-main/50 shadow-md dark:shadow-xl flex items-center justify-between group hover:border-[#0EA5A4]/30 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute inset-0 bg-[#0EA5A4]/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10">
               <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-2">{metaFilter !== 'All' ? 'Recent Momentum' : 'Pending Advanced'}</p>
               <h3 className="text-4xl font-black text-text-main tracking-tight">
                 {metaFilter !== 'All' ? recentMomentum : mAdvanced.toLocaleString()}
               </h3>
-              <p className="text-[11px] text-[#00a884] font-black mt-1">
+              <p className="text-[11px] text-[#0EA5A4] font-black mt-1">
                 {metaFilter !== 'All' ? 'Active in last 24h' : `${mAdvancedRate}% advanced yield`}
               </p>
             </div>
-            <div className="bg-[#00a884]/10 dark:bg-white/10 p-4 rounded-2xl text-[#00a884] shadow-lg border border-[#00a884]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
+            <div className="bg-[#0EA5A4]/10 dark:bg-white/10 p-4 rounded-2xl text-[#0EA5A4] shadow-lg border border-[#0EA5A4]/20 relative z-10 transition-transform group-hover:scale-110 duration-300">
               {metaFilter !== 'All' ? <Send size={24} strokeWidth={2.5} /> : <Send size={24} strokeWidth={2.5} />}
             </div>
           </div>
@@ -1084,6 +1402,7 @@ const Sidebar = ({ theme, user, onLogout }) => (
         { name: 'Dashboard', icon: Layers, path: '/dashboard' },
         { name: 'Leads', icon: Users, path: '/leads' },
         { name: 'Funnel', icon: Layers, path: '/funnel' },
+        { name: 'Pipeline', icon: Briefcase, path: '/pipeline' },
         { name: 'Settings', icon: Settings, path: '/settings' },
       ].map((item) => (
         <NavLink
@@ -1296,15 +1615,12 @@ const LeadModal = ({ onClose, onSubmit, formData, setFormData, activeSource, isS
 
                <div>
                 <label className="block text-[8px] font-black text-brand-primary uppercase tracking-widest mb-2 ml-1">LinkedIn Account</label>
-                <select
-                  className="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
+                <CustomSelect
+                  options={linkedInAccounts}
                   value={formData.linkedInAccount}
                   onChange={e => setFormData({...formData, linkedInAccount: e.target.value})}
-                >
-                  {linkedInAccounts.map(acc => (
-                    <option key={acc} value={acc}>{acc}</option>
-                  ))}
-                </select>
+                  triggerClassName="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
+                />
               </div>
 
               <div>
@@ -1343,14 +1659,12 @@ const LeadModal = ({ onClose, onSubmit, formData, setFormData, activeSource, isS
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[8px] font-black text-brand-primary uppercase tracking-widest mb-2 ml-1">Company Size</label>
-                  <select
-                    className="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
+                  <CustomSelect
+                    options={['11-50', '51-200']}
                     value={formData.employeeSize}
                     onChange={e => setFormData({...formData, employeeSize: e.target.value})}
-                  >
-                    <option value="11-50">11-50</option>
-                    <option value="51-200">51-200</option>
-                  </select>
+                    triggerClassName="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
+                  />
                 </div>
               </div>
 
@@ -1404,16 +1718,12 @@ const LeadModal = ({ onClose, onSubmit, formData, setFormData, activeSource, isS
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Current Status</label>
-                  <select
-                    className="w-full px-4 py-3 rounded-xl border border-border-main bg-bg-main outline-none focus:border-brand-primary text-text-main font-bold appearance-none cursor-pointer"
+                  <CustomSelect
+                    options={['New', 'Follow-up', 'DNP', 'Not Interested']}
                     value={formData.status}
                     onChange={e => setFormData({...formData, status: e.target.value})}
-                  >
-                    <option>New</option>
-                    <option>Follow-up</option>
-                    <option>DNP</option>
-                    <option>Not Interested</option>
-                  </select>
+                    triggerClassName="w-full px-4 py-3 rounded-xl border border-border-main bg-bg-main outline-none focus:border-brand-primary text-text-main font-bold"
+                  />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Follow-up Date</label>
@@ -1502,16 +1812,25 @@ const LeadModal = ({ onClose, onSubmit, formData, setFormData, activeSource, isS
                     onChange={e => setFormData({...formData, upworkAmountQuoted: e.target.value})}
                   />
                 </div>
-                <div>
-                  <label className="block text-[8px] font-black text-brand-primary uppercase tracking-widest mb-2 ml-1">Bid Amount</label>
-                  <input
-                    type="text"
-                    placeholder="$450"
-                    className="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
-                    value={formData.upworkBidAmount}
-                    onChange={e => setFormData({...formData, upworkBidAmount: e.target.value})}
-                  />
-                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, isAppliedWithin10Mins: !prev.isAppliedWithin10Mins }))}
+                  className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 group shadow-sm active:scale-[0.98] border ${
+                    formData.isAppliedWithin10Mins 
+                      ? 'bg-emerald-500 text-white border-emerald-400 shadow-lg shadow-emerald-500/20' 
+                      : 'bg-brand-primary/10 text-brand-primary border-brand-primary/30 hover:bg-brand-primary/20'
+                  }`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse transition-colors ${formData.isAppliedWithin10Mins ? 'bg-white' : 'bg-brand-primary'}`}></div>
+                  Applied within 10 mins
+                  <Send size={12} className={formData.isAppliedWithin10Mins ? '' : 'group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform'} />
+                </button>
+                <p className="text-[8px] text-brand-primary/60 font-bold mt-2 text-center uppercase tracking-widest italic">
+                  * Toggling this adds high-priority IST tracking
+                </p>
               </div>
             </div>
           )}
@@ -1602,11 +1921,20 @@ const LeadsWrapper = ({ renderLeads, fetchSourceLeads, activeSource }) => {
   return renderLeads();
 };
 
+const PipelineWrapper = ({ renderPipeline, fetchSourceLeads, activeSource }) => {
+  const location = useLocation();
+  useEffect(() => {
+    fetchSourceLeads(activeSource, false, true);
+  }, [location.pathname]);
+
+  return renderPipeline();
+};
+
 // --- MAIN APP COMPONENT ---
 
 const AppContent = ({ 
   theme, toggleTheme, searchQuery, setSearchQuery, setShowAddForm, 
-  renderDashboard, renderLeads, renderFunnel, fetchSourceLeads, updateLeadAccount,
+  renderDashboard, renderLeads, renderFunnel, renderPipeline, fetchSourceLeads, updateLeadAccount,
   activeSource, setActiveSource, setFormData, user, onLogout 
 }) => {
   const location = useLocation();
@@ -1616,6 +1944,7 @@ const AppContent = ({
       case '/dashboard': return 'Lead Operations Center';
       case '/leads': return 'Leads';
       case '/funnel': return 'Sales Funnel';
+      case '/pipeline': return 'Pipeline Management';
       case '/settings': return 'Settings';
       default: return 'Lead Operations Center';
     }
@@ -1638,17 +1967,34 @@ const AppContent = ({
         />
 
         <div className="px-12 py-10 w-full overflow-x-hidden">
-          <div className="mb-12 border-b border-border-main pb-8">
-            <h1 className="text-5xl font-black text-text-main tracking-tighter mb-4">
-              {getPageTitle()}
-            </h1>
-            <div className="flex items-center gap-4">
-               <div className="flex items-center gap-2 bg-brand-primary/10 text-brand-primary px-3 py-1.5 rounded-full border border-brand-primary/20 text-[10px] font-black uppercase tracking-widest">
-                  Active Session
+          <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 border-b border-border-main/40">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute inset-0 bg-brand-primary/20 rounded-full blur-md animate-pulse"></div>
+                  <div className="relative w-2.5 h-2.5 bg-brand-primary rounded-full border border-white/20"></div>
+                </div>
+                <span className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">System Live • 2026-04-25</span>
+              </div>
+              <h1 className="text-6xl font-black text-text-main tracking-tighter leading-none">
+                {getPageTitle()}
+              </h1>
+              <p className="text-text-muted font-bold text-xs uppercase tracking-[0.2em] mt-4 opacity-50 flex items-center gap-2">
+                <Database size={12} className="opacity-40" />
+                {location.pathname === '/dashboard' ? 'OPTIMIZING SALES CONVERSIONS THROUGH DATA INTERPRETATION' : 'SECURE SYSTEM DIRECTORY ACCESS'}
+              </p>
+            </div>
+            
+            <div className="hidden lg:flex items-center gap-8 pr-4">
+               <div className="text-right">
+                  <p className="text-[9px] font-black text-text-muted uppercase tracking-[0.3em] mb-1">Status</p>
+                  <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">Active Session</p>
                </div>
-               <p className="text-text-muted font-bold text-xs uppercase tracking-[0.2em] opacity-60">
-                {location.pathname === '/dashboard' ? 'OPTIMIZING SALES CONVERSIONS THROUGH DATA INTERPRETATION' : 'SYSTEM DIRECTORY ACCESS'}
-               </p>
+               <div className="h-8 w-px bg-border-main/50"></div>
+               <div className="text-right">
+                  <p className="text-[9px] font-black text-text-muted uppercase tracking-[0.3em] mb-1">Corpus</p>
+                  <p className="text-xs font-black text-text-main uppercase tracking-widest">Revenue Discipline</p>
+               </div>
             </div>
           </div>
 
@@ -1657,6 +2003,7 @@ const AppContent = ({
             <Route path="/dashboard" element={renderDashboard()} />
             <Route path="/leads" element={<LeadsWrapper renderLeads={renderLeads} fetchSourceLeads={fetchSourceLeads} activeSource={activeSource} />} />
             <Route path="/funnel" element={<FunnelWrapper renderFunnel={renderFunnel} fetchSourceLeads={fetchSourceLeads} activeSource={activeSource} setActiveSource={setActiveSource} />} />
+            <Route path="/pipeline" element={<PipelineWrapper renderPipeline={renderPipeline} fetchSourceLeads={fetchSourceLeads} activeSource={activeSource} />} />
             <Route path="/settings" element={
               <div className="card p-24 text-center">
                 <Settings size={64} className="mx-auto text-brand-primary opacity-20 mb-8" />
@@ -1679,7 +2026,7 @@ const DISPOSITION_GROUPS = {
   'Sales Funnel': [
     'Demo Booked', 'Proposal Call Booked', 'Proposal Call booked- No show', 
     'Proposal Call Booked- Meeting done', 'Proposal Call booked- Potential Pipeline- Stopped responding',
-    'Demo Booked - No show'
+    'Demo Booked - No show', 'MOVE TO PIPELINE'
   ],
   'Terminal': ['not interested', 'Junk']
 };
@@ -1704,6 +2051,7 @@ const App = () => {
 
   const [leads, setLeads] = useState([]);
   const [funnelLeads, setFunnelLeads] = useState([]);
+  const [pipelineLeads, setPipelineLeads] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingSource, setLoadingSource] = useState(null);
@@ -1726,6 +2074,38 @@ const App = () => {
   const [activeDateDropdown, setActiveDateDropdown] = useState(false);
   const [activeDnpComment, setActiveDnpComment] = useState(null);
   const [dnpCommentText, setDnpCommentText] = useState('');
+  const [activeAccountDropdown, setActiveAccountDropdown] = useState(false);
+  const [usdToInr, setUsdToInr] = useState(null);
+  const [editingConnects, setEditingConnects] = useState(false);
+  const [editingBidAmount, setEditingBidAmount] = useState(false);
+  const [connectsInputVal, setConnectsInputVal] = useState('');
+  const [bidAmountInputVal, setBidAmountInputVal] = useState('');
+  const [showInrTotal, setShowInrTotal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState('');
+  const [upworkJobStatusFilter, setUpworkJobStatusFilter] = useState('All');
+  const [upworkOutcomeFilter, setUpworkOutcomeFilter] = useState('All');
+
+
+
+  // Fetch live USD→INR rate
+  useEffect(() => {
+    fetch('https://api.frankfurter.dev/v1/latest?from=USD&to=INR')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.rates?.INR) setUsdToInr(data.rates.INR);
+      })
+      .catch(() => setUsdToInr(83.5)); // fallback
+  }, []);
+
+  // Auto-cycle Total Spent currency display
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setShowInrTotal(prev => !prev);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Persistence management
   useEffect(() => {
@@ -1742,12 +2122,12 @@ const App = () => {
     nextFollowUp: '',
     images: [],
     source: localStorage.getItem('activeSource') || 'Meta',
-    upworkBidAmount: '',
     linkedinUrl: '',
     companyUrl: '',
     employeeSize: '11-50',
     linkedInAccount: 'All Accounts',
-    additionalInfo: ''
+    additionalInfo: '',
+    isAppliedWithin10Mins: false
   });
 
   const today = new Date().toLocaleDateString('en-CA'); // Gets YYYY-MM-DD in local time accurately
@@ -1870,13 +2250,15 @@ const App = () => {
     // If CUSTOM, we don't clear, just let the user change inputs
   };
 
-  const fetchSourceLeads = async (source, isFunnel = false) => {
+  const fetchSourceLeads = async (source, isFunnel = false, isPipeline = false) => {
     setLoadingSource(source);
     try {
       let url = `${import.meta.env.VITE_API_FETCH_LEADS}?action=${source.toUpperCase()}`;
       if (isFunnel) {
          const funnelAction = source === 'Meta' ? 'MetaFunnel' : 'LinkedinFunnel';
          url = `https://n8n.srv1010832.hstgr.cloud/webhook/739d38b1-3cf2-4adb-9a88-51ba283b109f?action=${funnelAction}`;
+      } else if (isPipeline) {
+         url = `https://n8n.srv1010832.hstgr.cloud/webhook/739d38b1-3cf2-4adb-9a88-51ba283b109f?action=Pipeline`;
       }
       const response = await fetch(url);
       if (!response.ok) throw new Error('Network response was not ok');
@@ -1899,6 +2281,17 @@ const App = () => {
       }
       
       const newLeads = incomingLeads.map((item, idx) => {
+        // Case-insensitive key lookup helper
+        const getCI = (obj, ...keys) => {
+          const lowerMap = {};
+          Object.keys(obj).forEach(k => { lowerMap[k.toLowerCase().trim()] = obj[k]; });
+          for (const k of keys) {
+            const v = lowerMap[k.toLowerCase().trim()];
+            if (v !== undefined && v !== null && v !== '' && v !== '-' && v !== '---') return v;
+          }
+          return null;
+        };
+
         let name = item.Name || item.name || item['Prospect Name'] || item['Name/Company'] || item.fullName || '';
         const roleRaw = item['Additional info '] || item['Additional info'] || item['additional info'] || '';
         const role = roleRaw.toString().trim();
@@ -1906,14 +2299,77 @@ const App = () => {
         const companyUrl = item['Company'] || item.company_website || null;
         const rawStatus = item['Status'] || item.status || (item['Lead stages'] ? item['Lead stages'] : 'New');
         
+        // Determine the actual source for this specific item (crucial for Pipeline mixed leads)
+        const itemSource = item.source || item['Lead Source'] || item['source'] || source;
+        
         let finalStatus = 'New';
-        if (source === 'Meta') {
+        if (itemSource === 'Meta') {
           finalStatus = META_STATUSES.includes(rawStatus) ? rawStatus : (LEAD_STATUSES.includes(rawStatus) ? rawStatus : 'New');
         } else {
           finalStatus = LEAD_STATUSES.includes(rawStatus) ? rawStatus : 'New';
         }
 
         const phone = item.Number || item['Lead Phone No'] || item.phone || item.mobile || '---';
+
+        const upworkJobTypeResolved = itemSource === 'Upwork'
+          ? (getCI(item,
+              'Job type applied for', 'job type applied for', 'JOB TYPE APPLIED FOR',
+              'Job Type Applied For', 'jobTypeAppliedFor',
+              'JOB TYPE', 'Job Type', 'job type',
+              'Job Classification', 'job classification'
+            ) || null)
+          : null;
+
+        const upworkBidPlacedResolved = itemSource === 'Upwork'
+          ? (getCI(item,
+              'bid placed', 'Bid Placed', 'BID PLACED', 'BD', 'bd', 'connects bid for'
+            ) || null)
+          : null;
+
+        const upworkBidAmountResolved = itemSource === 'Upwork'
+          ? (getCI(item, 'Bid Amount', 'bid amount', 'BID AMOUNT', 'bid for amount', 'amount bid') || '-')
+          : '-';
+
+        const upworkAmountQuotedResolved = itemSource === 'Upwork'
+          ? (getCI(item, 'Amount Quoted', 'amount quoted', 'AMOUNT QUOTED', 'quoted amount') || '-')
+          : '-';
+
+        const upworkConnectsResolved = itemSource === 'Upwork'
+          ? (getCI(item, 'Connects used', 'connects used', 'CONNECTS USED', 'connects', 'connects applied for', 'Connects applied for') || '-')
+          : '-';
+
+        const upworkApplyDateResolved = itemSource === 'Upwork'
+          ? (getCI(item, 'Apply Date', 'apply date', 'APPLY DATE', 'Date Applied') || '-')
+          : '-';
+
+        // ── Upwork: URL, Job Status, Outcome ──────────────────────────────
+        const upworkUrlResolved = itemSource === 'Upwork'
+          ? (getCI(item,
+              'Link', 'link', 'URL', 'url', 'Upwork Link', 'upwork link',
+              'Job URL', 'job url', 'Upwork URL', 'upwork url', 'Job Link'
+            ) || null)
+          : null;
+
+        // Normalise "Open" / "Closed" from whatever the sheet sends
+        const rawJobStatus = itemSource === 'Upwork'
+          ? (getCI(item,
+              'Job Status', 'job status', 'JOB STATUS', 'Job status',
+              'Status', 'status'
+            ) || 'Open')
+          : 'Open';
+        const upworkJobStatusResolved = ['Open','Closed'].includes(rawJobStatus) ? rawJobStatus : 'Open';
+
+        // Normalise outcome
+        const rawOutcome = itemSource === 'Upwork'
+          ? (getCI(item,
+              'Outcome', 'outcome', 'OUTCOME', 'Result', 'result',
+              'Application Result', 'application result'
+            ) || 'Pending')
+          : 'Pending';
+        const upworkOutcomeResolved = ["Pending", "Got it", "Didn't get it"].includes(rawOutcome) ? rawOutcome : 'Pending';
+
+        // Row number for webhook updates
+        const rowNumberResolved = item.row_number || item.row || item.ID || item.id || null;
         
         if ((!name || name.toLowerCase().includes('linkedin')) && linkedinUrl) {
            const match = linkedinUrl.match(/\/in\/([^/]+)/);
@@ -1925,10 +2381,21 @@ const App = () => {
              name = segments.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
            }
         }
+
+        // For Upwork: use job type as display name when available
+        if (itemSource === 'Upwork') {
+          if (upworkJobTypeResolved) {
+            name = upworkJobTypeResolved;
+          } else if (!name || name.includes('Lead from')) {
+            const link = item.Link || item.link || '';
+            const match = link.match(/proposals\/(\d+)/);
+            name = match ? `Upwork Job #${match[1].slice(-4)}` : 'Upwork Lead';
+          }
+        }
         
         const finalDisplayName = (source === 'Linkedin' && role) ? `${name} - ${role}` : name;
         if (!finalDisplayName) {
-          name = source === 'Meta' ? (phone !== '---' ? phone : 'Meta Prospect') : ('Lead from ' + source);
+          name = itemSource === 'Meta' ? (phone !== '---' ? phone : 'Meta Prospect') : ('Lead from ' + itemSource);
         }
 
         
@@ -2009,13 +2476,13 @@ const App = () => {
         let followUpReason = '';
 
         // Priority 1: Source-specific dedicated date columns
-        if (source === 'Upwork') {
+        if (itemSource === 'Upwork') {
           const applyRaw = item['Apply Date'] || item['apply date'] || item['apply_date'] || item.col_10 || '';
           const parsed = normalizeDateForCheck(applyRaw);
           if (parsed) { nextFollowUp = parsed; followUpReason = 'Apply Date'; }
         }
 
-        if (source === 'Linkedin') {
+        if (itemSource === 'Linkedin') {
           // Check explicit follow-up columns for LinkedIn
           const liCols = ['Acceptance Date', 'acceptance_date', '1st fup', '2nd fup', '3rd fup', '4th fup', 'Follow Up Date', 'Follow-up Date', 'Follwup - 1', 'Follwup - 2', 'Follwup - 3', 'Follwup - 4'];
           for (const col of liCols) {
@@ -2045,7 +2512,8 @@ const App = () => {
             'Follwup - 1', 'Follwup - 2', 'Follwup - 3', 'Follwup - 4',
             // Generic
             'Follow Up Date', 'Follow-up Date', 'FOLLOW UP DATE', 'FUP',
-            'next_followup', 'Next Follow Up', 'NextFollowUp'
+            'next_followup', 'Next Follow Up', 'NextFollowUp',
+            'FU1', 'FU2', 'FU3', 'FU4'
           ];
 
           for (const col of allDateCols) {
@@ -2075,15 +2543,16 @@ const App = () => {
         const applyDate = item['Apply Date'] || item['apply date'] || '';
         const linkedinLink = item['Linkedin Link'] || item.linkedin || '';
         const uniqueSuffix = applyDate || linkedinLink || idx;
-        const deterministicId = `${source}-${cleanName}-${phone}-${uniqueSuffix}`.replace(/\s+/g, '');
+        const deterministicId = `${itemSource}-${cleanName}-${phone}-${uniqueSuffix}`.replace(/\s+/g, '');
 
         return {
           id: deterministicId,
           name: finalDisplayName || name,
           phone,
-          source: source,
+          source: itemSource,
           status: finalStatus,
           stage: rawStage,
+          rowNumber: rowNumberResolved,
           lastContact: normalizeDateForCheck(item.Date || item.date || item.last_contact_date || item['Date/Time'] || item['Apply Date']) || today,
           acceptanceDate: item['Acceptance Date'] || item.acceptance_date || '-',
           linkedInAccount: item['Linkedin Account'] || item.linkedin_account || '-',
@@ -2094,11 +2563,15 @@ const App = () => {
           chatHistory: item['Chat History'] || item.chat_history || null,
           rawData: item,
           // Upwork specific fields
-          upworkConnects: item['Connects used'] || item.connects_used || '-',
-          upworkJobType: item['Job Type'] || item.job_type || '-',
-          upworkAmountQuoted: item['Amount Quoted'] || item.amount_quoted || '-',
-          upworkBidAmount: item['Bid Amount'] || item.bid_amount || '-',
-          upworkApplyDate: item['Apply Date'] || item.apply_date || '-',
+          upworkUrl: upworkUrlResolved,
+          upworkConnects: upworkConnectsResolved,
+          upworkJobType: upworkJobTypeResolved || null,
+          upworkAmountQuoted: upworkAmountQuotedResolved,
+          upworkBidAmount: upworkBidAmountResolved,
+          upworkBidPlaced: upworkBidPlacedResolved,
+          upworkApplyDate: upworkApplyDateResolved,
+          upworkJobStatus: upworkJobStatusResolved,
+          upworkOutcome: upworkOutcomeResolved,
           nextFollowUp: nextFollowUp || 'TBD',
           followUpReason: followUpReason || '-',
           images: item.images || []
@@ -2111,6 +2584,8 @@ const App = () => {
           const otherSourceLeads = prev.filter(l => l.source !== source);
           return [...newLeads, ...otherSourceLeads];
         });
+      } else if (isPipeline) {
+        setPipelineLeads(newLeads);
       } else {
         // Main fetch → replace only this source's main leads, keep others intact
         setLeads(prev => {
@@ -2132,6 +2607,8 @@ const App = () => {
     fetchSourceLeads('Upwork');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Removed handleQuickApply as it is now a toggle option
 
   const handleAddLead = async (e) => {
     e.preventDefault();
@@ -2179,21 +2656,61 @@ const App = () => {
       }
 
       if (formData.source === 'Upwork') {
+        const connects = parseFloat(formData.upworkConnects) || 0;
+        const connectsCostUsd = (connects * 0.15).toFixed(2);
+        const connectsCostInr = usdToInr ? (connects * 0.15 * usdToInr).toFixed(2) : null;
+
+        const rawPayload = {
+          name: formData.name || formData.upworkJobType || 'Upwork Lead',
+          upworkApplyDate: formData.upworkApplyDate,
+          upworkUrl: formData.upworkUrl,
+          upworkConnects: formData.upworkConnects,
+          upworkJobType: formData.upworkJobType,
+          upworkAmountQuoted: formData.upworkAmountQuoted,
+          source: 'Upwork',
+          isAppliedWithin10Mins: formData.isAppliedWithin10Mins,
+          connectsCostUsd,
+          connectsCostInr
+        };
+
+        const filteredPayload = Object.fromEntries(
+          Object.entries(rawPayload).filter(([_, v]) => v !== '' && v !== null && v !== undefined && v !== '-')
+        );
+
         const response = await fetch(import.meta.env.VITE_API_UPWORK_SYNC, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.name || formData.upworkJobType || 'Upwork Lead',
-            upworkApplyDate: formData.upworkApplyDate,
-            upworkUrl: formData.upworkUrl,
-            upworkConnects: formData.upworkConnects,
-            upworkJobType: formData.upworkJobType,
-            upworkAmountQuoted: formData.upworkAmountQuoted,
-            upworkBidAmount: formData.upworkBidAmount,
-            source: 'Upwork'
-          })
+          body: JSON.stringify(filteredPayload)
         });
         if (!response.ok) throw new Error('Upwork network failure during synchronization');
+
+        // Optional Priority Sync if toggled
+        if (formData.isAppliedWithin10Mins) {
+          const istTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+          const priorityPayload = {
+            priority: 'Applied within 10 mins',
+            istAppliedTime: istTime,
+            name: formData.name || formData.upworkJobType || 'Upwork Lead',
+            upworkUrl: formData.upworkUrl,
+            upworkJobType: formData.upworkJobType,
+            upworkConnects: formData.upworkConnects,
+            upworkApplyDate: formData.upworkApplyDate,
+            upworkAmountQuoted: formData.upworkAmountQuoted,
+            source: 'Upwork',
+            connectsCostUsd,
+            connectsCostInr
+          };
+
+          const filteredPriority = Object.fromEntries(
+            Object.entries(priorityPayload).filter(([_, v]) => v !== '' && v !== null && v !== undefined && v !== '-')
+          );
+
+          fetch('https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b?action=NEW', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(filteredPriority)
+          }).catch(err => console.error('Priority sync background error:', err));
+        }
       }
 
       let finalName = formData.name;
@@ -2234,7 +2751,6 @@ const App = () => {
         upworkConnects: '',
         upworkJobType: '',
         upworkAmountQuoted: '',
-        upworkBidAmount: '',
         linkedinUrl: '',
         companyUrl: '',
         employeeSize: '11-50',
@@ -2289,6 +2805,225 @@ const App = () => {
         console.error('Telecommunications failure during status sync', err);
       }
     }
+
+    // New requested webhook for Pipeline changes
+    if (targetLead && (window.location.pathname.includes('/pipeline') || pipelineLeads.some(pl => pl.id === id))) {
+      try {
+        const pipelineUpdateUrl = import.meta.env.VITE_API_PIPELINE_UPDATE || "https://n8n.srv1010832.hstgr.cloud/webhook/81784f57-7689-4f8c-9345-5f074f61e857";
+        const updatedLeadData = { ...targetLead, status: newStatus, lastContact: today };
+        
+        fetch(pipelineUpdateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            field_changed: 'Status',
+            new_value: newStatus,
+            full_lead_info: updatedLeadData,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Pipeline Status Sync Error:', err));
+      } catch (err) {
+        console.error('Pipeline Status Sync Setup Error:', err);
+      }
+    }
+
+    // Upwork Master Sheet Sync
+    if (targetLead && targetLead.source === 'Upwork') {
+      try {
+        const upworkWebhookUrl = "https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b";
+        const updatedLead = { ...targetLead, status: newStatus, stage: (newStatus === 'DNP' ? 'DNP1' : ''), lastContact: today };
+        
+        fetch(upworkWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            action: 'StatusUpdate',
+            'Status': newStatus,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Upwork Status Sync Error:', err));
+      } catch (err) {
+        console.error('Upwork Status Sync Setup Error:', err);
+      }
+    }
+  };
+
+  const updateLeadJobType = async (id, newJobType) => {
+    setLeads(leads.map(l => {
+      if (l.id === id) {
+        // If it's an Upwork lead, the job type is usually the display name
+        return { ...l, upworkJobType: newJobType, name: l.source === 'Upwork' ? newJobType : l.name };
+      }
+      return l;
+    }));
+    
+    if (selectedLead && selectedLead.id === id) {
+      setSelectedLead({ ...selectedLead, upworkJobType: newJobType, name: selectedLead.source === 'Upwork' ? newJobType : selectedLead.name });
+    }
+
+    const targetLead = leads.find(l => l.id === id);
+    if (!targetLead) return;
+
+    // --- Webhook Sync Logic ---
+    
+    // 1. Pipeline Webhook (if applicable)
+    if (window.location.pathname.includes('/pipeline') || pipelineLeads.some(pl => pl.id === id)) {
+      try {
+        const pipelineUpdateUrl = import.meta.env.VITE_API_PIPELINE_UPDATE || "https://n8n.srv1010832.hstgr.cloud/webhook/81784f57-7689-4f8c-9345-5f074f61e857";
+        const updatedLeadData = { ...targetLead, upworkJobType: newJobType, name: targetLead.source === 'Upwork' ? newJobType : targetLead.name };
+
+        fetch(pipelineUpdateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            field_changed: 'Job Type',
+            new_value: newJobType,
+            full_lead_info: updatedLeadData,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Pipeline Job Type Sync Error:', err));
+      } catch (err) {
+        console.error('Pipeline Job Type Sync Setup Error:', err);
+      }
+    }
+
+    // 2. Upwork-specific Webhook (for all Upwork leads)
+    if (targetLead.source === 'Upwork') {
+      try {
+        const upworkWebhookUrl = "https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b";
+        const updatedLeadData = { ...targetLead, upworkJobType: newJobType, name: newJobType };
+
+        fetch(upworkWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            action: 'JobTypeUpdate',
+            'Job type applied for': newJobType,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Upwork Job Type Sync Error:', err));
+      } catch (err) {
+        console.error('Upwork Job Type Sync Setup Error:', err);
+      }
+    }
+  };
+
+  const syncUpworkConnections = async (lead, updatedFields) => {
+    try {
+      const webhookUrl = "https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b";
+      
+      const connects = parseFloat(updatedFields.upworkConnects ?? lead.upworkConnects) || 0;
+      const bidConnects = parseFloat(String(updatedFields.upworkBidAmount ?? lead.upworkBidAmount ?? '').replace(/[^0-9.]/g, '')) || 0;
+      
+      const appliedAmountUsd = connects * 0.15;
+      const bidAmountUsd = bidConnects * 0.15;
+      const appliedAmountInr = usdToInr ? (appliedAmountUsd * usdToInr) : null;
+      const bidAmountInr = usdToInr ? (bidAmountUsd * usdToInr) : null;
+      
+      const totalConnects = connects + bidConnects;
+      const totalUsd = totalConnects * 0.15;
+      const totalInr = usdToInr ? (totalUsd * usdToInr) : null;
+
+      const payload = {
+        id_number: lead.rawData?.id || lead.rawData?.ID || lead.rawData?.row_number || lead.id,
+        action: 'Connections',
+        'applied for (connects)': connects,
+        'applied for amount': appliedAmountInr ? appliedAmountInr.toFixed(0) : null,
+        'bid for (connects)': bidConnects,
+        'bid for amount': bidAmountInr ? bidAmountInr.toFixed(0) : null,
+        totalConnects,
+        costUsd: totalUsd.toFixed(2),
+        costInr: totalInr ? totalInr.toFixed(0) : null,
+        exchangeRate: usdToInr,
+        timestamp: new Date().toISOString()
+      };
+
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error('Upwork Connections Sync Error:', err));
+    } catch (err) {
+      console.error('Upwork Connections Sync Setup Error:', err);
+    }
+  };
+
+  const updateLeadConnects = async (id, newConnects) => {
+    const val = newConnects === '' ? '-' : newConnects;
+    setLeads(leads.map(l => l.id === id ? { ...l, upworkConnects: val } : l));
+    if (selectedLead && selectedLead.id === id) setSelectedLead({ ...selectedLead, upworkConnects: val });
+    
+    const targetLead = leads.find(l => l.id === id);
+    if (targetLead) {
+      // Send only to specialized connections webhook
+      syncUpworkConnections(targetLead, { upworkConnects: val });
+    }
+  };
+
+  const updateUpworkJobStatus = async (id, status) => {
+    setLeads(leads.map(l => l.id === id ? { ...l, upworkJobStatus: status } : l));
+    if (selectedLead && selectedLead.id === id) setSelectedLead({ ...selectedLead, upworkJobStatus: status });
+    
+    const targetLead = leads.find(l => l.id === id);
+    if (targetLead && targetLead.source === 'Upwork') {
+      try {
+        const upworkWebhookUrl = "https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b";
+        const updatedLead = { ...targetLead, upworkJobStatus: status };
+        fetch(upworkWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            action: 'JobStatusUpdate',
+            'Job Status': status,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Upwork Job Status Sync Error:', err));
+      } catch (err) {
+        console.error('Upwork Job Status Sync Setup Error:', err);
+      }
+    }
+  };
+
+  const updateUpworkOutcome = async (id, outcome) => {
+    setLeads(leads.map(l => l.id === id ? { ...l, upworkOutcome: outcome } : l));
+    if (selectedLead && selectedLead.id === id) setSelectedLead({ ...selectedLead, upworkOutcome: outcome });
+    
+    const targetLead = leads.find(l => l.id === id);
+    if (targetLead && targetLead.source === 'Upwork') {
+      try {
+        const upworkWebhookUrl = "https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b";
+        const updatedLead = { ...targetLead, upworkOutcome: outcome };
+        fetch(upworkWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            action: 'OutcomeUpdate',
+            'Outcome': outcome,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Upwork Outcome Sync Error:', err));
+      } catch (err) {
+        console.error('Upwork Outcome Sync Setup Error:', err);
+      }
+    }
+  };
+
+  const updateLeadBidAmount = async (id, newBid) => {
+    const val = newBid === '' ? '-' : newBid;
+    setLeads(leads.map(l => l.id === id ? { ...l, upworkBidAmount: val } : l));
+    if (selectedLead && selectedLead.id === id) setSelectedLead({ ...selectedLead, upworkBidAmount: val });
+    
+    const targetLead = leads.find(l => l.id === id);
+    if (targetLead) {
+      // Send only to specialized connections webhook
+      syncUpworkConnections(targetLead, { upworkBidAmount: val });
+    }
   };
 
   const updateLeadAccount = async (id, newAccount) => {
@@ -2319,6 +3054,50 @@ const App = () => {
         });
       } catch (err) {
         console.error('LinkedIn Account Sync Error:', err);
+      }
+    }
+
+    // New requested webhook for Pipeline changes
+    if (targetLead && (window.location.pathname.includes('/pipeline') || pipelineLeads.some(pl => pl.id === id))) {
+      try {
+        const pipelineUpdateUrl = import.meta.env.VITE_API_PIPELINE_UPDATE || "https://n8n.srv1010832.hstgr.cloud/webhook/81784f57-7689-4f8c-9345-5f074f61e857";
+        const updatedLeadData = { ...targetLead, linkedInAccount: newAccount };
+
+        fetch(pipelineUpdateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            field_changed: 'LinkedIn Account',
+            new_value: newAccount,
+            full_lead_info: updatedLeadData,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Pipeline Account Sync Error:', err));
+      } catch (err) {
+        console.error('Pipeline Account Sync Setup Error:', err);
+      }
+    }
+
+    // Upwork Master Sheet Sync
+    if (targetLead && targetLead.source === 'Upwork') {
+      try {
+        const upworkWebhookUrl = "https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b";
+        const updatedLead = { ...targetLead, linkedInAccount: newAccount };
+        
+        fetch(upworkWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            action: 'AccountUpdate',
+            'LinkedIn Account': newAccount,
+            full_lead_info: updatedLead,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Upwork Account Sync Error:', err));
+      } catch (err) {
+        console.error('Upwork Account Sync Setup Error:', err);
       }
     }
   };
@@ -2439,6 +3218,28 @@ const App = () => {
         console.error('LinkedIn Situation Sync Error:', err);
       }
     }
+
+    // New requested webhook for Pipeline changes
+    if (targetLead && (window.location.pathname.includes('/pipeline') || pipelineLeads.some(pl => pl.id === id))) {
+      try {
+        const pipelineUpdateUrl = import.meta.env.VITE_API_PIPELINE_UPDATE || "https://n8n.srv1010832.hstgr.cloud/webhook/81784f57-7689-4f8c-9345-5f074f61e857";
+        const updatedLeadData = { ...targetLead, notes: newNotes, lastContact: today };
+
+        fetch(pipelineUpdateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            field_changed: 'Disposition/Notes',
+            new_value: newNotes,
+            full_lead_info: updatedLeadData,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Pipeline Notes Sync Error:', err));
+      } catch (err) {
+        console.error('Pipeline Notes Sync Setup Error:', err);
+      }
+    }
   };
 
   const updateLeadSummary = async (id, newSummary) => {
@@ -2496,6 +3297,81 @@ const App = () => {
       } catch (err) {
         console.error('LinkedIn Comment Sync Error:', err);
       }
+    } else if (targetLead && targetLead.source === 'Upwork') {
+      try {
+        const upworkWebhookUrl = "https://n8n.srv1010832.hstgr.cloud/webhook/8ae8210b-c800-4ce4-b775-5435060f5b4b";
+        const updatedRaw = { ...(targetLead.rawData || {}) };
+        updatedRaw['Last conversation'] = newSummary;
+        const updatedLead = { ...targetLead, rawData: updatedRaw };
+
+        fetch(upworkWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_number: targetLead.rawData?.id || targetLead.rawData?.ID || targetLead.rawData?.row_number || id,
+            action: 'SummaryUpdate',
+            'Last conversation': newSummary,
+            timestamp: new Date().toISOString()
+          })
+        }).catch(err => console.error('Upwork Summary Sync Error:', err));
+      } catch (err) {
+        console.error('Upwork Summary Sync Setup Error:', err);
+      }
+    }
+  };
+  
+  const updatePipelineField = async (leadId, field, value) => {
+    const updateLeadsList = (list) => list.map(l => {
+      if (l.id === leadId) {
+        const updatedRaw = { ...(l.rawData || {}), [field]: value };
+        return { ...l, rawData: updatedRaw };
+      }
+      return l;
+    });
+
+    setLeads(updateLeadsList(leads));
+    setPipelineLeads(updateLeadsList(pipelineLeads));
+
+    if (selectedLead && selectedLead.id === leadId) {
+      setSelectedLead(prev => ({
+        ...prev,
+        rawData: { ...(prev.rawData || {}), [field]: value }
+      }));
+    }
+
+    try {
+      // Original webhook
+      fetch(`${import.meta.env.VITE_API_FETCH_LEADS}?action=UpdatePipeline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId,
+          field,
+          value,
+          row_number: selectedLead?.rawData?.row_number || selectedLead?.rawData?.row || null
+        })
+      }).catch(err => console.error('Original Pipeline Sync Error:', err));
+
+      // New requested webhook
+      const pipelineUpdateUrl = import.meta.env.VITE_API_PIPELINE_UPDATE || "https://n8n.srv1010832.hstgr.cloud/webhook/81784f57-7689-4f8c-9345-5f074f61e857";
+      const updatedLeadData = {
+        ...selectedLead,
+        rawData: { ...(selectedLead?.rawData || {}), [field]: value }
+      };
+
+      await fetch(pipelineUpdateUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_number: selectedLead?.rawData?.id || selectedLead?.rawData?.ID || selectedLead?.rawData?.row_number || leadId,
+          field_changed: field,
+          new_value: value,
+          full_lead_info: updatedLeadData,
+          timestamp: new Date().toISOString()
+        })
+      });
+    } catch (err) {
+      console.error('Pipeline Update Webhook Error:', err);
     }
   };
   
@@ -2577,9 +3453,9 @@ const App = () => {
     );
 
     const getColumnTitle = (src) => {
-      if (src === 'Meta') return 'Meta Engine';
-      if (src === 'Linkedin') return 'Li Gateway';
-      if (src === 'Upwork') return 'Upwork Channel';
+      if (src === 'Meta') return 'Meta';
+      if (src === 'Linkedin') return 'Linkedin';
+      if (src === 'Upwork') return 'Upwork';
       return src;
     };
     
@@ -2785,17 +3661,31 @@ const App = () => {
                                       'Proposal Call booked- No show',
                                       'Proposal Call Booked- Meeting done',
                                       'Proposal Call booked- Potential Pipeline- Stopped responding',
-                                      'Demo Booked - No show'
+                                      'Demo Booked - No show',
+                                      'MOVE TO PIPELINE'
                                     ]
-                                  : ['Demo Booked', 'Proposal Call Booked', 'Not Interested', 'Junk'];
+                                  : ['Demo Booked', 'Proposal Call Booked', 'Not Interested', 'Junk', 'MOVE TO PIPELINE'];
                                 
                                 return options.map(funnelStatus => (
                                   <button 
                                     key={funnelStatus}
                                     onClick={(e) => { 
                                       e.stopPropagation(); 
-                                      updateLeadNotes(lead.id, funnelStatus); 
-                                      setActiveDashboardDropdown(null); 
+                                      if (funnelStatus === 'MOVE TO PIPELINE') {
+                                        const comment = window.prompt("Add a comment for moving to pipeline:");
+                                        if (comment !== null) {
+                                          fetch('https://n8n.srv1010832.hstgr.cloud/webhook/8ac97b11-acf4-45f1-ab0a-e40d68ee214b', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ ...lead, lead_source: lead.source, pipeline_comment: comment })
+                                          }).catch(err => console.error('Webhook failed', err));
+                                          updateLeadNotes(lead.id, funnelStatus);
+                                        }
+                                        setActiveDashboardDropdown(null);
+                                      } else {
+                                        updateLeadNotes(lead.id, funnelStatus); 
+                                        setActiveDashboardDropdown(null); 
+                                      }
                                     }}
                                     className="w-full text-left px-4 py-3 hover:bg-brand-primary/10 text-text-main rounded-xl text-[9px] font-bold uppercase tracking-wider transition-colors"
                                   >
@@ -2842,22 +3732,38 @@ const App = () => {
              </button>
           ))}
         </div>
+
+        {currentView === 'Linkedin' && linkedInAccounts.length > 1 && (
+          <div className="mb-4">
+             {/* Account filter moved into SourceAnalytics for better UI placement */}
+          </div>
+        )}
+
         
         <div className="flex flex-col xl:flex-row gap-8 flex-1 overflow-hidden min-h-0 pb-8">
           <div className="w-full xl:w-[450px] shrink-0 h-full">
             {renderSourceColumn(getColumnTitle(currentView), activeLeads, getColumnIcon(currentView))}
           </div>
           
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-6">
             {(currentView === 'Meta' || currentView === 'Linkedin') ? (
               leads.length > 0 && (
                 <SourceAnalytics 
-                  leads={leads.filter(l => l.source === currentView)} 
-                  mainLeads={mainLeads.filter(l => l.source === currentView)}
+                  leads={leads} 
+                  mainLeads={mainLeads}
                   currentView={currentView} 
+                  activeAccount={activeAccount}
+                  setActiveAccount={setActiveAccount}
+                  linkedInAccounts={linkedInAccounts}
+                  activeAccountDropdown={activeAccountDropdown}
+                  setActiveAccountDropdown={setActiveAccountDropdown}
+                  setShowAccountModal={setShowAccountModal}
+                  activeDashboardDropdown={activeDashboardDropdown}
+                  setActiveDashboardDropdown={setActiveDashboardDropdown}
                 />
               )
             ) : (
+
               <div className="h-[50vh] xl:h-full flex flex-col items-center justify-center p-8 bg-bg-main/30 rounded-3xl border border-border-main border-dashed">
                 <Database size={48} className="text-text-muted opacity-30 mb-4" />
                 <h2 className="text-xl font-black text-text-main opacity-80">Telemetry Unavailable</h2>
@@ -2875,6 +3781,7 @@ const App = () => {
       const isFunnel = FUNNEL_STATUSES.includes(lead.status);
       const matchesSource = activeSource === 'All' || lead.source === activeSource;
       const matchesAccount = activeSource !== 'Linkedin' || activeAccount === 'All Accounts' || lead.linkedInAccount === activeAccount;
+      const matchesStatus = statusFilter === 'All' || lead.status === statusFilter;
       const name = lead.name || '';
       const phone = lead.phone || '';
       const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || phone.includes(searchQuery);
@@ -2886,7 +3793,17 @@ const App = () => {
         if (dateRange.end && leadDate > dateRange.end) matchesDate = false;
       }
       
-      return matchesSource && matchesAccount && matchesSearch && matchesDate && !isFunnel;
+      let matchesUpworkJobStatus = true;
+      if (activeSource === 'Upwork' && upworkJobStatusFilter !== 'All') {
+        matchesUpworkJobStatus = (lead.upworkJobStatus || 'Open') === upworkJobStatusFilter;
+      }
+
+      let matchesUpworkOutcome = true;
+      if (activeSource === 'Upwork' && upworkOutcomeFilter !== 'All') {
+        matchesUpworkOutcome = (lead.upworkOutcome || 'Pending') === upworkOutcomeFilter;
+      }
+      
+      return matchesSource && matchesAccount && matchesStatus && matchesSearch && matchesDate && !isFunnel && matchesUpworkJobStatus && matchesUpworkOutcome;
     });
 
     return (
@@ -2898,6 +3815,7 @@ const App = () => {
                 key={source}
                 onClick={() => {
                   setActiveSource(source);
+                  setStatusFilter('All');
                   fetchSourceLeads(source, false);
                 }}
                 className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeSource === source ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'text-text-muted hover:text-text-main hover:bg-bg-card'}`}
@@ -2907,17 +3825,113 @@ const App = () => {
             ))}
           </div>
           {activeSource === 'Linkedin' && linkedInAccounts.length > 1 && (
-            <div className="flex items-center gap-3 bg-bg-main border border-border-main px-4 py-2 rounded-2xl md:ml-4">
-              <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Sender ID:</span>
-              <select value={activeAccount} onChange={(e) => { if (e.target.value === 'ADD_NEW') { setShowAccountModal(true); return; } setActiveAccount(e.target.value); }} className="outline-none text-xs font-black text-text-main bg-transparent cursor-pointer appearance-none">
-                {linkedInAccounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                <option value="ADD_NEW">+ REGISTER NEW SENDER</option>
-              </select>
+            <div className="relative md:ml-4">
+              <div className="flex items-center gap-3 bg-bg-main border border-border-main px-6 py-2.5 rounded-2xl shadow-sm">
+                <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Sender ID:</span>
+                <button 
+                  onClick={() => setActiveAccountDropdown(!activeAccountDropdown)}
+                  className="flex items-center gap-4 text-[10px] font-black text-text-main hover:text-brand-primary transition-colors uppercase tracking-widest min-w-[140px] justify-between"
+                >
+                  {activeAccount}
+                  <ChevronDown size={14} className={`transition-transform duration-300 ${activeAccountDropdown ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              {activeAccountDropdown && (
+                <div className="absolute top-full mt-2 left-0 right-0 z-[110] bg-bg-card border border-border-main rounded-3xl shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                    {linkedInAccounts.map((acc) => (
+                      <button
+                        key={acc}
+                        onClick={() => {
+                          setActiveAccount(acc);
+                          setActiveAccountDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all
+                          ${activeAccount === acc 
+                            ? 'bg-brand-primary text-white shadow-lg' 
+                            : 'text-text-muted hover:bg-bg-main hover:text-text-main'}`}
+                      >
+                        {acc}
+                      </button>
+                    ))}
+                    <div className="border-t border-border-main mt-1 pt-1">
+                      <button 
+                        onClick={() => {
+                          setShowAccountModal(true);
+                          setActiveAccountDropdown(false);
+                        }}
+                        className="w-full text-left px-4 py-3 rounded-xl text-[10px] font-black text-brand-primary uppercase tracking-widest hover:bg-brand-primary/10 transition-all"
+                      >
+                        + REGISTER NEW SENDER
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeSource === 'Upwork' && (
+            <div className="flex flex-wrap items-center gap-3 ml-auto">
+              <div className="flex items-center gap-1 bg-bg-main p-1 rounded-2xl border border-border-main">
+                {['All', 'Open', 'Closed'].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => setUpworkJobStatusFilter(status)}
+                    className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${upworkJobStatusFilter === status ? 'bg-brand-primary text-white shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 bg-bg-main p-1 rounded-2xl border border-border-main">
+                {['All', 'Pending', 'Got it', "Didn't get it"].map(outcome => (
+                  <button
+                    key={outcome}
+                    onClick={() => setUpworkOutcomeFilter(outcome)}
+                    className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${upworkOutcomeFilter === outcome ? 'bg-brand-primary text-white shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                  >
+                    {outcome}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
           {(activeSource === 'Meta' || activeSource === 'Linkedin') && (
             <div className="flex flex-wrap items-center gap-3 ml-auto">
+              <div className="relative">
+                <button 
+                  onClick={() => setActiveDashboardDropdown(activeDashboardDropdown === 'status-filter' ? null : 'status-filter')}
+                  className="bg-bg-main border border-border-main px-6 py-2.5 rounded-2xl text-[10px] font-black text-text-main outline-none flex items-center gap-4 hover:border-brand-primary transition-all shadow-sm uppercase tracking-widest min-w-[160px] justify-between"
+                >
+                  {statusFilter === 'All' ? 'All Statuses' : statusFilter}
+                  <ChevronDown size={14} className={`transition-transform duration-300 ${activeDashboardDropdown === 'status-filter' ? 'rotate-180' : ''}`} />
+                </button>
+                {activeDashboardDropdown === 'status-filter' && (
+                  <div className="absolute top-full mt-2 right-0 z-[110] bg-bg-card border border-border-main rounded-3xl shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-300 min-w-[200px]">
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                      {['All', ...(activeSource === 'Meta' ? META_STATUSES : LEAD_STATUSES)].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => {
+                            setStatusFilter(s);
+                            setActiveDashboardDropdown(null);
+                          }}
+                          className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all
+                            ${statusFilter === s 
+                              ? 'bg-brand-primary text-white shadow-lg' 
+                              : 'text-text-muted hover:bg-bg-main hover:text-text-main'}`}
+                        >
+                          {s === 'All' ? '✦ All Statuses' : s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="relative">
                 <button 
                   onClick={() => setActiveDateDropdown(!activeDateDropdown)}
@@ -2981,9 +3995,9 @@ const App = () => {
           )}
         </div>
 
-        <div className="card overflow-hidden min-h-[500px]">
+        <div className="card min-h-[500px] mb-32">
           {loadingSource ? <LoadingAnimation /> : (
-            <div className="overflow-x-auto custom-scrollbar">
+            <div className="overflow-x-auto custom-scrollbar !overflow-y-visible pb-60">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-border-main">
@@ -3001,6 +4015,12 @@ const App = () => {
                       <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Apply Date</th>
                     )}
                     {activeSource === 'Upwork' && (
+                      <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Job Status</th>
+                    )}
+                    {activeSource === 'Upwork' && (
+                      <th className="px-5 py-6 text-left text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Outcome</th>
+                    )}
+                    {activeSource === 'Upwork' && (
                       <th className="px-5 py-6 text-center text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Link</th>
                     )}
                     <th className="px-5 py-6 text-center text-[10px] font-black text-brand-primary uppercase tracking-[0.3em]">Actions</th>
@@ -3011,7 +4031,10 @@ const App = () => {
                     <tr 
                       key={lead.id} 
                       onClick={() => setSelectedLead(lead)}
-                      className="group hover:bg-bg-main/50 transition-all duration-300 cursor-pointer"
+                      className={`group hover:bg-bg-main/50 transition-all duration-300 cursor-pointer ${
+                        lead.source === 'Upwork' && (lead.upworkJobStatus || 'Open') === 'Open' ? 'bg-emerald-500/[0.1] border-l-4 border-emerald-500' : 
+                        lead.source === 'Upwork' && lead.upworkJobStatus === 'Closed' ? 'bg-rose-500/[0.1] border-l-4 border-rose-500' : 'border-l-4 border-transparent'
+                      }`}
                     >
                       <td className="px-5 py-5">
                         <div className="flex flex-col gap-3">
@@ -3020,12 +4043,22 @@ const App = () => {
                               ${lead.source === 'Upwork' 
                                 ? 'bg-[#14a800]/10 text-[#14a800] border-[#14a800]/20' 
                                 : 'bg-brand-primary/10 text-brand-primary border-brand-primary/10'}`}>
-                              {(lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || '?')).charAt(0).toUpperCase()}
+                              {(lead.source === 'Upwork' 
+                                ? (lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || '?'))
+                                : (lead.name || '?')).charAt(0).toUpperCase()}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold text-text-main text-sm">
-                                  {lead.source === 'Upwork' && lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || 'Unnamed Lead')}
+                                 {lead.source === 'Upwork' && lead.upworkBidPlaced && !['-', '---', '', '0', 0].includes(lead.upworkBidPlaced) && (
+                                   <div className="flex items-center gap-1 px-2 py-0.5 bg-[#14a800]/10 border border-[#14a800]/30 rounded-full text-[8px] font-black text-[#14a800] uppercase tracking-widest shadow-[0_0_10px_rgba(20,168,0,0.1)]">
+                                     <BoostedIcon size={10} />
+                                     Boosted
+                                   </div>
+                                 )}
+                                 {lead.source === 'Upwork' 
+                                   ? (lead.upworkJobType && !['-', '---', ''].includes(lead.upworkJobType) ? lead.upworkJobType : (lead.name || 'Unnamed Lead'))
+                                   : (lead.name || 'Unnamed Lead')}
                                 </p>
                                 {lead.source === 'Upwork' && (
                                   <button 
@@ -3062,14 +4095,13 @@ const App = () => {
                         <td className="px-5 py-5">
                           <div className="flex items-center gap-2">
                           <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${lead.status === 'New' ? 'bg-brand-primary' : lead.status === 'Follow-up' ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
-                            <select 
+                            <CustomSelect 
                               value={lead.status} 
-                              onClick={(e) => e.stopPropagation()}
+                              options={LEAD_STATUSES}
                               onChange={(e) => updateLeadStatus(lead.id, e.target.value)} 
-                              className="bg-transparent text-xs font-semibold text-text-main focus:outline-none cursor-pointer uppercase tracking-wider appearance-none"
-                            >
-                              {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                              triggerClassName="bg-transparent text-xs font-semibold text-text-main focus:outline-none cursor-pointer uppercase tracking-wider"
+                              className="flex-1"
+                            />
                           </div>
                         </td>
                       )}
@@ -3081,17 +4113,16 @@ const App = () => {
                             </span>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <select 
+                              <CustomSelect 
                                 value={lead.linkedInAccount}
-                                onClick={(e) => e.stopPropagation()}
+                                options={[
+                                  ...(!linkedInAccounts.includes(lead.linkedInAccount) && lead.linkedInAccount !== '-' ? [lead.linkedInAccount] : []),
+                                  ...linkedInAccounts
+                                ]}
                                 onChange={(e) => updateLeadAccount(lead.id, e.target.value)}
-                                className="bg-bg-main px-4 py-2 rounded-xl text-[10px] font-black text-text-main border border-border-main appearance-none outline-none focus:border-brand-primary transition-colors cursor-pointer w-full hover:border-brand-primary/50"
-                              >
-                                {!linkedInAccounts.includes(lead.linkedInAccount) && lead.linkedInAccount !== '-' && (
-                                  <option value={lead.linkedInAccount}>{lead.linkedInAccount}</option>
-                                )}
-                                {linkedInAccounts.map(s => <option key={s} value={s}>{s}</option>)}
-                              </select>
+                                triggerClassName="bg-bg-main px-4 py-2 rounded-xl text-[10px] font-black text-text-main border border-border-main appearance-none outline-none focus:border-brand-primary transition-colors cursor-pointer w-full hover:border-brand-primary/50"
+                                className="w-full"
+                              />
                             </div>
                           )}
                         </td>
@@ -3101,6 +4132,34 @@ const App = () => {
                           <span className="text-[11px] font-bold px-3 py-1 rounded-lg inline-block bg-emerald-500/10 text-emerald-500">
                             {lead.upworkApplyDate || '—'}
                           </span>
+                        </td>
+                      )}
+                      {activeSource === 'Upwork' && (
+                        <td className="px-5 py-5 min-w-[140px]">
+                          <CustomSelect
+                            value={lead.upworkJobStatus || 'Open'}
+                            options={['Open', 'Closed']}
+                            onChange={(e) => updateUpworkJobStatus(lead.id, e.target.value)}
+                            triggerClassName={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${
+                              (lead.upworkJobStatus || 'Open') === 'Open' 
+                                ? 'bg-brand-primary/5 text-brand-primary border-brand-primary/20 hover:bg-brand-primary/10' 
+                                : 'bg-text-muted/5 text-text-muted border-text-muted/20 hover:bg-text-muted/10'
+                            }`}
+                          />
+                        </td>
+                      )}
+                      {activeSource === 'Upwork' && (
+                        <td className="px-5 py-5 min-w-[160px]">
+                          <CustomSelect
+                            value={lead.upworkOutcome || 'Pending'}
+                            options={['Pending', 'Got it', "Didn't get it"]}
+                            onChange={(e) => updateUpworkOutcome(lead.id, e.target.value)}
+                            triggerClassName={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${
+                              lead.upworkOutcome === 'Got it' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 
+                              lead.upworkOutcome === "Didn't get it" ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20' : 
+                              'bg-amber-500/5 text-amber-500/70 border-amber-500/10 hover:bg-amber-500/10'
+                            }`}
+                          />
                         </td>
                       )}
                       {activeSource === 'Upwork' && (
@@ -3178,7 +4237,7 @@ const App = () => {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={activeSource === 'Meta' ? 3 : (activeSource === 'Upwork' ? 4 : 4)} className="px-5 py-24 text-center">
+                      <td colSpan={activeSource === 'Meta' ? 3 : (activeSource === 'Upwork' ? 6 : 4)} className="px-5 py-24 text-center">
                         <Database size={40} className="mx-auto text-text-muted opacity-10 mb-4" />
                         <p className="text-text-muted font-bold uppercase tracking-widest text-xs">No leads match the current filter</p>
                       </td>
@@ -3217,7 +4276,7 @@ const App = () => {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 bg-bg-card p-4 rounded-3xl border border-border-main shadow-xs">
-          <div className="flex bg-[#0b141a] p-1.5 rounded-2xl border border-white/5 w-full lg:w-fit overflow-x-auto shadow-inner">
+          <div className="flex bg-[#000000] p-1.5 rounded-2xl border border-white/5 w-full lg:w-fit overflow-x-auto shadow-inner">
             {['Meta', 'Linkedin'].map(source => (
               <button
                 key={source}
@@ -3227,7 +4286,7 @@ const App = () => {
                 }}
                 className={`px-12 py-3 rounded-xl text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300 min-w-[140px] ${
                   currentFunnelSource === source 
-                    ? 'bg-[#9fd48a] text-[#0b141a] shadow-lg shadow-[#9fd48a]/20' 
+                    ? 'bg-brand-primary text-[#000000] shadow-lg shadow-brand-primary/20' 
                     : 'text-[#8696a0] hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -3238,10 +4297,22 @@ const App = () => {
           {currentFunnelSource === 'Linkedin' && linkedInAccounts.length > 1 && (
             <div className="flex items-center gap-3 bg-bg-main border border-border-main px-4 py-2 rounded-2xl md:ml-4">
               <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Sender ID:</span>
-              <select value={activeAccount} onChange={(e) => { if (e.target.value === 'ADD_NEW') { setShowAccountModal(true); return; } setActiveAccount(e.target.value); }} className="outline-none text-xs font-black text-text-main bg-transparent cursor-pointer appearance-none">
-                {linkedInAccounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                <option value="ADD_NEW">+ REGISTER NEW SENDER</option>
-              </select>
+              <CustomSelect 
+                value={activeAccount} 
+                options={[
+                  ...linkedInAccounts.map(acc => ({ value: acc, label: acc })),
+                  { value: 'ADD_NEW', label: '+ REGISTER NEW SENDER' }
+                ]}
+                onChange={(e) => { 
+                  if (e.target.value === 'ADD_NEW') { 
+                    setShowAccountModal(true); 
+                    return; 
+                  } 
+                  setActiveAccount(e.target.value); 
+                }} 
+                triggerClassName="outline-none text-xs font-black text-text-main bg-transparent cursor-pointer"
+                className="flex-1"
+              />
             </div>
           )}
 
@@ -3249,14 +4320,14 @@ const App = () => {
             <div className="relative">
               <button 
                 onClick={() => setActiveDateDropdown(!activeDateDropdown)}
-                className="bg-[#0b141a] border border-white/10 px-6 py-2.5 rounded-2xl text-[10px] font-black text-[#8696a0] outline-none flex items-center gap-4 hover:border-[#9fd48a] transition-all shadow-sm uppercase tracking-widest min-w-[160px] justify-between"
+                className="bg-[#000000] border border-white/10 px-6 py-2.5 rounded-2xl text-[10px] font-black text-[#8696a0] outline-none flex items-center gap-4 hover:border-brand-primary transition-all shadow-sm uppercase tracking-widest min-w-[160px] justify-between"
               >
                 {activeDatePreset === 'ALL_TIME' ? 'All Time' : activeDatePreset.replace('_', ' ')}
                 <ChevronDown size={14} className={`transition-transform duration-300 ${activeDateDropdown ? 'rotate-180' : ''}`} />
               </button>
               
               {activeDateDropdown && (
-                <div className="absolute top-full mt-2 left-0 z-[100] bg-[#0b141a] border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="absolute top-full mt-2 left-0 z-[100] bg-[#000000] border border-white/10 rounded-2xl shadow-2xl p-2 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-300">
                   {[
                     { id: 'ALL_TIME', label: 'All Time' },
                     { id: 'THIS_MONTH', label: 'This Month' },
@@ -3268,7 +4339,7 @@ const App = () => {
                       onClick={() => { setDatePreset(opt.id); setActiveDateDropdown(false); }}
                       className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all
                         ${activeDatePreset === opt.id 
-                          ? 'bg-[#9fd48a] text-[#0b141a] shadow-lg shadow-[#9fd48a]/20' 
+                          ? 'bg-brand-primary text-[#000000] shadow-lg shadow-brand-primary/20' 
                           : 'text-[#8696a0] hover:bg-white/5 hover:text-white'}`}
                     >
                       {opt.label}
@@ -3279,8 +4350,8 @@ const App = () => {
             </div>
 
             {activeDatePreset === 'CUSTOM' && (
-              <div className="flex items-center gap-2 bg-[#0b141a] border border-[#9fd48a]/30 px-4 py-2 rounded-2xl animate-in slide-in-from-right-4 duration-300 shadow-sm">
-                <Calendar size={14} className="text-[#9fd48a]" />
+              <div className="flex items-center gap-2 bg-[#000000] border border-brand-primary/30 px-4 py-2 rounded-2xl animate-in slide-in-from-right-4 duration-300 shadow-sm">
+                <Calendar size={14} className="text-brand-primary" />
                 <input 
                   type="date" 
                   value={dateRange.start} 
@@ -3308,9 +4379,9 @@ const App = () => {
           </div>
         </div>
 
-        <div className="card overflow-hidden min-h-[500px]">
+        <div className="card min-h-[500px] mb-32">
           {loadingSource ? <LoadingAnimation /> : (
-            <div className="overflow-x-auto custom-scrollbar">
+            <div className="overflow-x-auto custom-scrollbar !overflow-y-visible pb-60">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-border-main">
@@ -3340,9 +4411,54 @@ const App = () => {
                               </p>
                             </div>
                           </div>
-                          {lead.source === 'Meta' && (
-                            <div className="w-[300px]" onClick={(e) => e.stopPropagation()}>
-                              <LeadStatusTracker lead={lead} compact={true} />
+                          {(lead.source === 'Meta' || lead.source === 'Linkedin') && (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              {['1', '2', '3', '4'].map((num) => {
+                                const stage = `FU${num}`;
+                                const rawDate = lead?.rawData?.[`FU - ${num}`] || 
+                                                lead?.rawData?.[`FU-${num}`] || 
+                                                lead?.rawData?.[`FU ${num}`] || 
+                                                lead?.rawData?.[stage] || '—';
+                                
+                                const isDone = rawDate.toLowerCase().includes('done');
+                                const displayDate = rawDate.replace(/done/gi, '').trim();
+                                
+                                const comment = lead?.rawData?.[`FU - ${num} Comment`] || 
+                                                lead?.rawData?.[`FU-${num} Comment`] || 
+                                                lead?.rawData?.[`FU ${num} Comment`] || 
+                                                lead?.rawData?.[`${stage}_comment`] || 
+                                                lead?.rawData?.[`${stage} Comment`] || '';
+                                
+                                return (
+                                  <div key={stage} className="relative group/tooltip">
+                                    <div className={`flex flex-col items-center justify-center px-3 py-1 border rounded-lg transition-all cursor-help min-w-[64px] ${
+                                      isDone 
+                                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]' 
+                                        : displayDate !== '—'
+                                          ? 'bg-white/5 border-white/10 text-text-main hover:border-brand-primary/40'
+                                          : 'bg-white/[0.02] border-white/5 text-text-muted opacity-20'
+                                    }`}>
+                                      <span className="text-[7px] font-black uppercase tracking-[0.2em] opacity-40 mb-0.5">{stage}</span>
+                                      <span className="text-[9px] font-black uppercase tracking-tight">
+                                        {displayDate || '—'}
+                                      </span>
+                                    </div>
+                                    
+                                    {comment && (
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 p-3 bg-bg-card border border-border-main rounded-2xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[100] backdrop-blur-xl">
+                                        <div className="flex items-center gap-1.5 mb-2 border-b border-border-main/50 pb-1.5">
+                                          <MessageCircle size={10} className="text-brand-primary" />
+                                          <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">{stage} Intel</span>
+                                        </div>
+                                        <p className="text-[10px] text-text-main leading-relaxed font-medium">
+                                          {comment}
+                                        </p>
+                                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-bg-card border-r border-b border-border-main rotate-45"></div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -3425,6 +4541,138 @@ const App = () => {
 
 
 
+  const renderPipeline = () => {
+    const headers = [
+      "Entity Information", "Follow-up", "Final Status", "Stage", "Next Action", "Source"
+    ];
+
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="glass-panel rounded-[40px] border border-border-main/40 shadow-2xl overflow-hidden min-h-[600px] flex flex-col">
+          {loadingSource ? <LoadingAnimation /> : (
+            <div className="overflow-x-auto custom-scrollbar flex-1">
+              <table className="w-full border-separate border-spacing-0">
+                <thead>
+                  <tr className="bg-bg-main/40 backdrop-blur-md sticky top-0 z-50">
+                    {headers.map(h => (
+                      <th key={h} className="px-8 py-7 text-left text-[9px] font-black text-text-muted uppercase tracking-[0.25em] border-b border-border-main/30 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-main/10">
+                  {pipelineLeads.length > 0 ? pipelineLeads.map(lead => (
+                    <tr 
+                      key={lead.id} 
+                      onClick={() => setSelectedLead(lead)}
+                      className="group hover:bg-white/[0.03] transition-all duration-300 cursor-pointer"
+                    >
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="flex items-center gap-4">
+                          <div className="relative">
+                            <div className="w-10 h-10 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center font-black text-sm border border-brand-primary/20 shadow-inner group-hover:scale-110 transition-transform">
+                              {lead.name.charAt(0)}
+                            </div>
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#020617] flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-text-main tracking-tight leading-tight">{lead.rawData?.['Lead Name'] || lead.name}</p>
+                            <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-1 opacity-60">
+                              {lead.rawData?.['Account Name'] || lead.linkedInAccount || 'Unmapped Entity'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap min-w-[200px]">
+                        <div className="relative group/tooltip">
+                          {(() => {
+                            const rawDate = lead.rawData?.['Follow-up'] || '—';
+                            const isDone = rawDate.toLowerCase().includes('done');
+                            const displayDate = rawDate.replace(/done/gi, '').trim();
+                            
+                            return (
+                              <div className={`flex items-center gap-2 px-4 py-2 border rounded-xl transition-all cursor-help ${
+                                isDone 
+                                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' 
+                                  : 'bg-white/5 border-white/10 text-text-main hover:border-brand-primary/50'
+                              }`}>
+                                {isDone ? <CheckCircle2 size={14} className="text-emerald-500" /> : <Calendar size={14} className="text-brand-primary opacity-60" />}
+                                <span className="text-[11px] font-black uppercase tracking-widest">
+                                  {displayDate || '—'}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                          
+                          {lead.rawData?.['follow-up_comment'] && (
+                            <div className="absolute bottom-full left-0 mb-3 w-64 p-4 bg-bg-card border border-border-main rounded-2xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[100] backdrop-blur-xl">
+                              <div className="flex items-center gap-2 mb-2 border-b border-border-main pb-2">
+                                <MessageSquare size={12} className="text-brand-primary" />
+                                <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Comment</span>
+                              </div>
+                              <p className="text-xs text-text-main leading-relaxed font-medium">
+                                {lead.rawData?.['follow-up_comment']}
+                              </p>
+                              <div className="absolute -bottom-1.5 left-6 w-3 h-3 bg-bg-card border-r border-b border-border-main rotate-45"></div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <CustomSelect 
+                          options={PIPELINE_FINAL_STATUSES}
+                          value={lead.rawData?.['Final Status'] || lead.status}
+                          onChange={(e) => updatePipelineField(lead.id, 'Final Status', e.target.value)}
+                          triggerClassName="badge border bg-brand-primary/10 text-brand-primary border-brand-primary/20 hover:scale-105 transition-all min-w-[100px]"
+                        />
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <CustomSelect 
+                          options={PIPELINE_STAGES}
+                          value={lead.rawData?.['Stage'] || lead.stage || '—'}
+                          onChange={(e) => updatePipelineField(lead.id, 'Stage', e.target.value)}
+                          triggerClassName="text-[10px] font-black text-text-muted uppercase tracking-widest hover:text-text-main transition-colors text-left min-w-[160px]"
+                        />
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <div className="flex items-center gap-2 text-brand-primary">
+                          <ArrowRight size={14} className="opacity-40" />
+                          <span className="text-xs font-black uppercase tracking-tight">{lead.rawData?.['Next Action'] || 'System Default'}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        <span className="text-[9px] font-black bg-white/5 px-4 py-1.5 rounded-full border border-white/10 uppercase tracking-[0.2em] text-text-muted group-hover:text-text-main transition-colors">
+                          {lead.source}
+                        </span>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={headers.length + 1} className="px-5 py-32 text-center">
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 bg-bg-main rounded-full flex items-center justify-center mb-6 shadow-inner border border-border-main">
+                            <Database size={32} className="text-text-muted opacity-20" />
+                          </div>
+                          <h3 className="text-xl font-black text-text-main opacity-80">Pipeline Empty</h3>
+                          <p className="text-xs font-bold text-text-muted uppercase tracking-[0.2em] mt-3 opacity-60">System standing by for telemetry data</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -3436,7 +4684,7 @@ const App = () => {
   // Initial Full Screen Splash Loading
   if (leads.length === 0 && loadingSource) {
     return (
-      <div className="fixed inset-0 bg-[#0b141a] z-[9999] flex flex-col items-center justify-center">
+      <div className="fixed inset-0 bg-[#000000] z-[9999] flex flex-col items-center justify-center">
         <div className="text-white text-3xl font-black">LOADING...</div>
       </div>
     );
@@ -3466,6 +4714,7 @@ const App = () => {
           renderDashboard={renderDashboard}
           renderLeads={renderLeads}
           renderFunnel={renderFunnel}
+          renderPipeline={renderPipeline}
           updateLeadAccount={updateLeadAccount}
           activeSource={activeSource}
           setActiveSource={setActiveSource}
@@ -3506,10 +4755,72 @@ const App = () => {
                       {selectedLead.name.charAt(0)}
                     </div>
                     <div>
-                      <h2 className="text-3xl font-black text-text-main tracking-tighter leading-tight">{selectedLead.name}</h2>
-                      <div className="flex items-center gap-4 mt-2">
+                      <h2 className="text-3xl font-black text-text-main tracking-tighter leading-tight flex items-center gap-4">
+                        {selectedLead.source === 'Upwork' && isEditingName ? (
+                          <input 
+                            autoFocus
+                            className="bg-bg-main border border-brand-primary/30 rounded-xl px-4 py-1 text-2xl font-black w-full outline-none focus:border-brand-primary animate-in slide-in-from-left-2 duration-200"
+                            value={tempName}
+                            onChange={(e) => setTempName(e.target.value)}
+                            onBlur={() => {
+                              if (tempName.trim() && tempName !== selectedLead.name) {
+                                updateLeadJobType(selectedLead.id, tempName);
+                              }
+                              setIsEditingName(false);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                if (tempName.trim() && tempName !== selectedLead.name) {
+                                  updateLeadJobType(selectedLead.id, tempName);
+                                }
+                                setIsEditingName(false);
+                              } else if (e.key === 'Escape') {
+                                setIsEditingName(false);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <span 
+                            onClick={() => {
+                              if (selectedLead.source === 'Upwork') {
+                                setTempName(selectedLead.name);
+                                setIsEditingName(true);
+                              }
+                            }}
+                            className={selectedLead.source === 'Upwork' ? 'group cursor-pointer hover:text-brand-primary transition-all flex items-center gap-3' : ''}
+                          >
+                            {selectedLead.name}
+                            {selectedLead.source === 'Upwork' && (
+                              <PencilLine size={20} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-primary" />
+                            )}
+                          </span>
+                        )}
+                        {selectedLead.source === 'Upwork' && selectedLead.upworkBidPlaced && !['-', '---', '', '0', 0].includes(selectedLead.upworkBidPlaced) && (
+                          <div className="flex items-center gap-1 px-3 py-1 bg-[#14a800]/10 border border-[#14a800]/30 rounded-full text-[10px] font-black text-[#14a800] uppercase tracking-widest shadow-[0_0_15px_rgba(20,168,0,0.15)]">
+                            <BoostedIcon size={12} />
+                            Boosted
+                          </div>
+                        )}
+                        {selectedLead.rawData?.['Final Status'] && (
+                          <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-4 py-1 rounded-full border border-emerald-500/20 uppercase tracking-[0.2em] shadow-sm">
+                            {selectedLead.rawData['Final Status']}
+                          </span>
+                        )}
+                        {selectedLead.rawData?.['Stage'] && (
+                          <span className="text-[10px] font-black text-brand-primary bg-brand-primary/10 px-4 py-1 rounded-full border border-brand-primary/20 uppercase tracking-[0.2em] shadow-sm">
+                            {selectedLead.rawData['Stage']}
+                          </span>
+                        )}
+                      </h2>
+                      <div className="flex items-center gap-4 mt-3">
                         <span className="text-[10px] font-black text-white bg-brand-primary px-4 py-1 rounded-full uppercase tracking-[0.2em] shadow-lg shadow-brand-primary/30">{selectedLead.source}</span>
-                        <span className="text-xs font-bold text-text-muted tracking-widest uppercase">{selectedLead.phone}</span>
+                        <span className="text-xs font-bold text-text-muted tracking-widest uppercase opacity-60">{selectedLead.phone || 'NO CONTACT RECORDED'}</span>
+                        {selectedLead.rawData?.['Next Action'] && (
+                          <span className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] flex items-center gap-2 bg-bg-main px-3 py-1 rounded-lg border border-border-main ml-2">
+                             <div className="w-1 h-1 rounded-full bg-brand-primary animate-pulse"></div>
+                             NEXT: {selectedLead.rawData['Next Action']}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3526,146 +4837,621 @@ const App = () => {
                </div>
                <div className="flex-1 overflow-y-auto p-12 bg-bg-main/10 flex justify-center">
                   <div className="w-full max-w-4xl space-y-12">
-                        <div>
-                           <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-6 flex items-center gap-4">
-                              ANALYSIS ENGINE
-                              <div className="h-px bg-brand-primary/20 flex-1"></div>
-                           </h4>
-                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                              <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors">
-                                 <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Operational Status</p>
-                                 <p className="text-base font-black text-text-main">{selectedLead.status} {selectedLead.stage ? `• ${selectedLead.stage}` : ''}</p>
+                        {window.location.pathname.includes('/pipeline') && (
+                           <div className="animate-in slide-in-from-bottom-4 duration-500 mb-12">
+                              <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-6 flex items-center gap-4">
+                                 PIPELINE & ENTITY INTEL
+                                 <div className="h-px bg-brand-primary/20 flex-1"></div>
+                              </h4>
+                              
+                              <div className="bg-bg-card/40 backdrop-blur-3xl p-8 rounded-[32px] border border-border-main/50 shadow-2xl relative overflow-visible">
+                                 {/* Decorative glow */}
+                                 <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
+                                 <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+                                 {/* NEXT FOLLOWUP - COMPACT VERSION */}
+                                 <div className="relative mb-8">
+                                    <h5 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-4 flex items-center gap-4">
+                                       NEXT FOLLOWUP
+                                       <div className="h-px bg-brand-primary/20 flex-1"></div>
+                                    </h5>
+                                    
+                                    <div className="bg-bg-main/30 backdrop-blur-xl p-5 rounded-[24px] border border-border-main/50 shadow-inner relative overflow-hidden">
+                                       <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 via-transparent to-brand-primary/5 opacity-50 rounded-[24px]"></div>
+                                       
+                                       {(() => {
+                                          const fup = 'FU1';
+                                          const commentKey = `${fup}_Comment`;
+                                          const comment = selectedLead.rawData?.[commentKey] || selectedLead.rawData?.[`${fup} Comment`];
+                                          const hasComment = !!comment;
+                                          const dateValue = selectedLead.rawData?.[fup];
+                                          const isDone = hasComment || (dateValue && dateValue.toLowerCase().includes('done'));
+                                          
+                                          return (
+                                             <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
+                                                <div className="relative group/logo shrink-0">
+                                                   <div 
+                                                      className={`
+                                                         w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative
+                                                         ${isDone 
+                                                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]' 
+                                                            : 'bg-bg-card/50 border-border-main text-slate-700 hover:border-brand-primary/40 hover:text-brand-primary hover:shadow-[0_0_20px_rgba(159,212,138,0.1)]'}
+                                                      `}
+                                                   >
+                                                      {isDone ? (
+                                                         <div className="flex flex-col items-center animate-in zoom-in duration-300">
+                                                            <CheckCircle2 size={24} weight="bold" />
+                                                            <span className="text-[6px] font-black mt-0.5 tracking-widest uppercase">Done</span>
+                                                         </div>
+                                                      ) : (
+                                                         <div className={`w-2 h-2 rounded-full transition-all duration-300 ${dateValue ? 'bg-brand-primary/40 scale-125' : 'bg-slate-800 group-hover:bg-brand-primary/60'}`}></div>
+                                                      )}
+                                                      
+                                                      {dateValue && !isDone && (
+                                                         <div className="absolute inset-0 rounded-full border border-brand-primary/30 animate-ping opacity-20"></div>
+                                                      )}
+                                                   </div>
+                                                </div>
+                                                
+                                                <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
+                                                   <div className="lg:col-span-1">
+                                                      <p className="text-[9px] font-black text-brand-primary/70 uppercase tracking-widest mb-1.5">Schedule</p>
+                                                      <input 
+                                                         type="datetime-local"
+                                                         className={`
+                                                            w-full bg-bg-main/40 text-[13px] font-black py-2 px-3 rounded-xl border border-border-main outline-none transition-all
+                                                            ${isDone ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' : dateValue ? 'text-brand-primary border-brand-primary/20 bg-brand-primary/5' : 'text-text-muted/30'}
+                                                            focus:border-brand-primary/50 focus:text-brand-primary focus:bg-brand-primary/10
+                                                         `}
+                                                         value={dateValue || ''}
+                                                         onChange={(e) => updatePipelineField(selectedLead.id, fup, e.target.value)}
+                                                      />
+                                                   </div>
+                                                   <div className="lg:col-span-2">
+                                                      <p className="text-[9px] font-black text-brand-primary/70 uppercase tracking-widest mb-1.5">Internal Observation</p>
+                                                      <textarea 
+                                                         className={`
+                                                            w-full bg-bg-main/20 text-[13px] font-medium p-2.5 rounded-xl border border-border-main/50 outline-none transition-all resize-none h-[42px] custom-scrollbar
+                                                            ${hasComment ? 'text-text-main border-brand-primary/30' : 'text-text-muted/40'}
+                                                            focus:border-brand-primary/50 focus:bg-bg-main/40
+                                                         `}
+                                                         placeholder="Record follow-up details..."
+                                                         value={comment || ''}
+                                                         onChange={(e) => updatePipelineField(selectedLead.id, commentKey, e.target.value)}
+                                                      />
+                                                   </div>
+                                                </div>
+                                             </div>
+                                          );
+                                       })()}
+                                    </div>
+                                 </div>
+
+                                 {/* Section 1: Core Pipeline Status */}
+                                 <div className="mb-8 relative focus-within:z-50">
+                                    <h5 className="text-[9px] font-black text-text-muted uppercase tracking-[0.4em] mb-4 opacity-50 pl-2 border-l-2 border-brand-primary/50">Core Status</h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-brand-primary/70 uppercase tracking-widest mb-1 flex items-center gap-2">Final Status</p>
+                                          <CustomSelect 
+                                            options={['dropped', 'closed']}
+                                            value={selectedLead.rawData?.['Final Status'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Final Status', e.target.value)}
+                                            placeholder="Select Status..."
+                                            triggerClassName="w-full text-sm font-black text-text-main outline-none"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-brand-primary/70 uppercase tracking-widest mb-1 flex items-center gap-2">Stage</p>
+                                          <CustomSelect 
+                                            options={['intro meeting done', 'proposal call done', 'closed', 'not closed', 'proposal sent']}
+                                            value={selectedLead.rawData?.['Stage'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Stage', e.target.value)}
+                                            placeholder="Select Stage..."
+                                            triggerClassName="w-full text-sm font-black text-text-main outline-none"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group lg:col-span-2">
+                                          <p className="text-[9px] font-black text-brand-primary/70 uppercase tracking-widest mb-1 flex items-center gap-2">Next Action</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-emerald-500 outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Next Action'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Next Action', e.target.value)}
+                                            placeholder="Specify next action required..."
+                                          />
+                                       </div>
+                                    </div>
+                                 </div>
+
+                                 {/* Section 2: Entity Details */}
+                                 <div className="mb-8 relative focus-within:z-50">
+                                    <h5 className="text-[9px] font-black text-text-muted uppercase tracking-[0.4em] mb-4 opacity-50 pl-2 border-l-2 border-emerald-500/50">Entity & Source</h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Account Name</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Account Name'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Account Name', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Industry</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Industry'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Industry', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Lead Name</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Lead Name'] || selectedLead.name || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Lead Name', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Lead Source</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Lead Source'] || selectedLead.source || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Lead Source', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group lg:col-span-2">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Website</p>
+                                          <input 
+                                            type="url"
+                                            className="w-full bg-transparent text-sm font-black text-brand-primary outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Website'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Website', e.target.value)}
+                                            placeholder="https://"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Country</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Country'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Country', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">City</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['City'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'City', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                    </div>
+                                 </div>
+
+                                 {/* Section 3: Contact Channels */}
+                                 <div className="mb-8 relative focus-within:z-50">
+                                    <h5 className="text-[9px] font-black text-text-muted uppercase tracking-[0.4em] mb-4 opacity-50 pl-2 border-l-2 border-blue-500/50">Contact Channels</h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group lg:col-span-2">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Primary Email</p>
+                                          <input 
+                                            type="email"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Email ID'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Email ID', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group lg:col-span-2">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Primary Mobile</p>
+                                          <input 
+                                            type="tel"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Mobile'] || selectedLead.phone || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Mobile', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Secondary Name</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Lead 2 Name'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Lead 2 Name', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Secondary Mobile</p>
+                                          <input 
+                                            type="tel"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Mobile 2'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Mobile 2', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group lg:col-span-2">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Secondary Email</p>
+                                          <input 
+                                            type="email"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Email 2'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Email 2', e.target.value)}
+                                            placeholder="—"
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group lg:col-span-4">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">LinkedIn Profile</p>
+                                          <input 
+                                            type="url"
+                                            className="w-full bg-transparent text-sm font-black text-[#0a66c2] outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['LinkedIn'] || selectedLead.linkedinUrl || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'LinkedIn', e.target.value)}
+                                            placeholder="https://linkedin.com/in/..."
+                                          />
+                                       </div>
+                                    </div>
+                                 </div>
+
+                                 {/* Section 4: Documentation & Notes */}
+                                 <div className="relative focus-within:z-50 mb-12">
+                                    <h5 className="text-[9px] font-black text-text-muted uppercase tracking-[0.4em] mb-4 opacity-50 pl-2 border-l-2 border-purple-500/50">Documentation</h5>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Proposal Link</p>
+                                          <input 
+                                            type="url"
+                                            className="w-full bg-transparent text-sm font-black text-purple-400 outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Proposal Link'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Proposal Link', e.target.value)}
+                                            placeholder="Link to document..."
+                                          />
+                                       </div>
+                                       <div className="bg-bg-main/50 p-5 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group relative focus-within:z-40">
+                                          <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-1">Proposal Sent Date</p>
+                                          <input 
+                                            type="text"
+                                            className="w-full bg-transparent text-sm font-black text-text-main outline-none placeholder:text-text-muted/30"
+                                            value={selectedLead.rawData?.['Proposal Sent'] || ''}
+                                            onChange={(e) => updatePipelineField(selectedLead.id, 'Proposal Sent', e.target.value)}
+                                            placeholder="DD/MM/YYYY"
+                                          />
+                                       </div>
+                                    </div>
+                                    <div className="bg-bg-main/50 p-6 rounded-2xl border border-border-main hover:border-brand-primary/40 transition-all focus-within:border-brand-primary/60 focus-within:shadow-[0_0_20px_rgba(159,212,138,0.1)] group">
+                                       <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mb-3">Pipeline Comments</p>
+                                       <textarea 
+                                         className="w-full bg-transparent text-sm font-bold text-text-main leading-relaxed outline-none min-h-[80px] resize-none placeholder:text-text-muted/30 placeholder:italic"
+                                         value={selectedLead.rawData?.['Comments'] || selectedLead.rawData?.['pipeline_comment'] || ''}
+                                         onChange={(e) => updatePipelineField(selectedLead.id, 'Comments', e.target.value)}
+                                         placeholder="Record strategic pipeline intelligence, negotiation notes, or follow-up specifics here..."
+                                       />
+                                    </div>
+                                 </div>
+
                               </div>
-                              <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors">
-                                 <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Temporal Markers</p>
-                                 <p className="text-sm font-black text-text-main">{selectedLead.lastContact} <span className="text-text-muted mx-2">→</span> {selectedLead.nextFollowUp}</p>
-                                 {selectedLead.source === 'Linkedin' && selectedLead.acceptanceDate && (
-                                   <p className="text-[9px] font-black text-brand-primary/80 uppercase tracking-widest mt-2">Accepted: {selectedLead.acceptanceDate}</p>
+                           </div>
+                        )}
+
+                        {!window.location.pathname.includes('/pipeline') && (
+                           <div>
+                              <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-6 flex items-center gap-4">
+                                 ANALYSIS ENGINE
+                                 <div className="h-px bg-brand-primary/20 flex-1"></div>
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                 {selectedLead.source !== 'Upwork' && (
+                                    <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors">
+                                       <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Operational Status</p>
+                                       <p className="text-base font-black text-text-main">{selectedLead.status} {selectedLead.stage ? `• ${selectedLead.stage}` : ''}</p>
+                                    </div>
                                  )}
-                                 {selectedLead.followUpReason && (
-                                   <p className="text-[9px] font-black text-brand-primary/60 uppercase tracking-widest mt-2 flex items-center gap-2">
-                                     <span className="w-1 h-1 rounded-full bg-brand-primary animate-pulse inline-block"></span>
-                                     Triggered by: {selectedLead.followUpReason}
-                                   </p>
+                                 {selectedLead.source !== 'Upwork' && (
+                                    <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors">
+                                       <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Temporal Markers</p>
+                                       <p className="text-sm font-black text-text-main">{selectedLead.lastContact} <span className="text-text-muted mx-2">→</span> {selectedLead.nextFollowUp}</p>
+                                       {selectedLead.source === 'Linkedin' && selectedLead.acceptanceDate && (
+                                          <p className="text-[9px] font-black text-brand-primary/80 uppercase tracking-widest mt-2">Accepted: {selectedLead.acceptanceDate}</p>
+                                       )}
+                                       {selectedLead.followUpReason && (
+                                          <p className="text-[9px] font-black text-brand-primary/60 uppercase tracking-widest mt-2 flex items-center gap-2">
+                                          <span className="w-1 h-1 rounded-full bg-brand-primary animate-pulse inline-block"></span>
+                                          Triggered by: {selectedLead.followUpReason}
+                                          </p>
+                                       )}
+                                    </div>
                                  )}
-                              </div>
-                              <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors relative">
-                                 <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">
-                                   {selectedLead.source === 'Linkedin' ? 'Sending Account' : 'Lead Assignment'}
-                                 </p>
-                                 {selectedLead.source === 'Linkedin' ? (
-                                   <div className="relative">
-                                      <button 
-                                        onClick={() => setActiveDropdown(activeDropdown === 'modal-account' ? null : 'modal-account')}
-                                        className="w-full flex items-center justify-between bg-bg-main/50 px-4 py-2.5 rounded-xl border border-border-main hover:border-brand-primary/40 transition-all text-sm font-black text-text-main group"
-                                      >
-                                        <span className="truncate">{selectedLead.linkedInAccount || 'Select Account'}</span>
-                                        <ChevronRight size={16} className={`text-brand-primary transition-transform duration-300 ${activeDropdown === 'modal-account' ? 'rotate-90' : ''}`} />
-                                      </button>
-                                      
-                                      {activeDropdown === 'modal-account' && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[110] py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                           <div className="max-h-48 overflow-y-auto custom-scrollbar">
-                                              {['Select Account', ...linkedInAccounts.filter(a => a !== 'All Accounts')].map((acc) => (
+                                 {selectedLead.source === 'Upwork' && (
+                                    <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors">
+                                       <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Apply Date</p>
+                                       <p className="text-xl font-black text-brand-primary">{selectedLead.upworkApplyDate || '-'}</p>
+                                    </div>
+                                 )}
+                                 {selectedLead.source !== 'Upwork' && (
+                                    <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors relative">
+                                       <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">
+                                          {selectedLead.source === 'Linkedin' ? 'Sending Account' : 'Lead Assignment'}
+                                       </p>
+                                       {selectedLead.source === 'Linkedin' ? (
+                                          <div className="relative">
+                                             <button 
+                                             onClick={() => setActiveDropdown(activeDropdown === 'modal-account' ? null : 'modal-account')}
+                                             className="w-full flex items-center justify-between bg-bg-main/50 px-4 py-2.5 rounded-xl border border-border-main hover:border-brand-primary/40 transition-all text-sm font-black text-text-main group"
+                                             >
+                                             <span className="truncate">{selectedLead.linkedInAccount || 'Select Account'}</span>
+                                             <ChevronRight size={16} className={`text-brand-primary transition-transform duration-300 ${activeDropdown === 'modal-account' ? 'rotate-90' : ''}`} />
+                                             </button>
+                                             
+                                             {activeDropdown === 'modal-account' && (
+                                             <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[110] py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                                   {['Select Account', ...linkedInAccounts.filter(a => a !== 'All Accounts')].map((acc) => (
+                                                      <button
+                                                      key={acc}
+                                                      onClick={() => {
+                                                         updateLeadAccount(selectedLead.id, acc === 'Select Account' ? '-' : acc);
+                                                         setActiveDropdown(null);
+                                                      }}
+                                                      className={`w-full px-5 py-3 text-left text-xs font-bold transition-colors hover:bg-brand-primary/10 ${
+                                                         (selectedLead.linkedInAccount === acc || (acc === 'Select Account' && selectedLead.linkedInAccount === '-')) 
+                                                            ? 'text-brand-primary bg-brand-primary/5' 
+                                                            : 'text-text-muted hover:text-text-main'
+                                                      }`}
+                                                      >
+                                                      {acc}
+                                                      </button>
+                                                   ))}
+                                                </div>
+                                             </div>
+                                             )}
+                                          </div>
+                                       ) : (
+                                          <p className="text-sm font-black text-text-main ml-1">Global Meta Pool</p>
+                                       )}
+                                    </div>
+                                 )}
+                                 {selectedLead.source === 'Upwork' && (() => {
+                                    const connects = parseFloat(selectedLead.upworkConnects) || 0;
+                                    const bidConnects = parseFloat((selectedLead.upworkBidAmount || '').replace(/[^0-9.]/g, '')) || 0;
+                                    
+                                    const totalConnects = connects + bidConnects;
+                                    const totalUsd = totalConnects * 0.15;
+                                    const totalInr = usdToInr ? (totalUsd * usdToInr) : null;
+
+                                    return (
+                                       <>
+                                          {/* Connects Used — always shown for Upwork, editable */}
+                                          <div className="bg-bg-card p-5 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/40 transition-colors col-span-1">
+                                             <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-3 opacity-50">Connects Used</p>
+                                             {editingConnects ? (
+                                                <div className="flex items-center gap-2">
+                                                   <input
+                                                      type="number"
+                                                      min="0"
+                                                      autoFocus
+                                                      value={connectsInputVal}
+                                                      onChange={e => setConnectsInputVal(e.target.value)}
+                                                      onBlur={() => {
+                                                         updateLeadConnects(selectedLead.id, connectsInputVal);
+                                                         setEditingConnects(false);
+                                                      }}
+                                                      onKeyDown={e => {
+                                                         if (e.key === 'Enter') { updateLeadConnects(selectedLead.id, connectsInputVal); setEditingConnects(false); }
+                                                         if (e.key === 'Escape') setEditingConnects(false);
+                                                      }}
+                                                      className="w-full bg-bg-main border border-brand-primary/40 rounded-xl px-3 py-2 text-lg font-black text-brand-primary outline-none focus:border-brand-primary transition-all"
+                                                      placeholder="e.g. 6"
+                                                   />
+                                                </div>
+                                             ) : (
                                                 <button
-                                                  key={acc}
-                                                  onClick={() => {
-                                                    updateLeadAccount(selectedLead.id, acc === 'Select Account' ? '-' : acc);
-                                                    setActiveDropdown(null);
-                                                  }}
-                                                  className={`w-full px-5 py-3 text-left text-xs font-bold transition-colors hover:bg-brand-primary/10 ${
-                                                    (selectedLead.linkedInAccount === acc || (acc === 'Select Account' && selectedLead.linkedInAccount === '-')) 
+                                                   onClick={() => { setConnectsInputVal(selectedLead.upworkConnects && selectedLead.upworkConnects !== '-' ? selectedLead.upworkConnects : ''); setEditingConnects(true); }}
+                                                   className="w-full text-left group"
+                                                >
+                                                   <p className="text-2xl font-black text-brand-primary group-hover:opacity-70 transition-opacity">
+                                                      {selectedLead.upworkConnects && selectedLead.upworkConnects !== '-' && selectedLead.upworkConnects !== '---' ? selectedLead.upworkConnects : <span className="text-text-muted text-sm font-bold">Click to enter</span>}
+                                                   </p>
+                                                   {connects > 0 && (
+                                                      <div className="mt-2 space-y-0.5">
+                                                         <p className="text-[10px] font-bold text-text-muted">Cost: <span className="text-amber-400">${(connects * 0.15).toFixed(2)}</span></p>
+                                                         {usdToInr && (
+                                                            <p className="text-[10px] font-bold text-text-muted">≈ <span className="text-emerald-400">₹{(connects * 0.15 * usdToInr).toFixed(0)}</span></p>
+                                                         )}
+                                                      </div>
+                                                   )}
+                                                </button>
+                                             )}
+                                          </div>
+                                          {/* Bid Placed — always shown for Upwork, editable */}
+                                          <div className="bg-bg-card p-5 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/40 transition-colors col-span-1">
+                                             <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-3 opacity-50">Bid Placed</p>
+                                             {editingBidAmount ? (
+                                                <div className="flex items-center gap-2">
+                                                   <input
+                                                      type="number"
+                                                      min="0"
+                                                      autoFocus
+                                                      value={bidAmountInputVal}
+                                                      onChange={e => setBidAmountInputVal(e.target.value)}
+                                                      onBlur={() => {
+                                                         updateLeadBidAmount(selectedLead.id, bidAmountInputVal);
+                                                         setEditingBidAmount(false);
+                                                      }}
+                                                      onKeyDown={e => {
+                                                         if (e.key === 'Enter') { updateLeadBidAmount(selectedLead.id, bidAmountInputVal); setEditingBidAmount(false); }
+                                                         if (e.key === 'Escape') setEditingBidAmount(false);
+                                                      }}
+                                                      className="w-full bg-bg-main border border-brand-primary/40 rounded-xl px-3 py-2 text-lg font-black text-text-main outline-none focus:border-brand-primary transition-all"
+                                                      placeholder="e.g. 50"
+                                                   />
+                                                </div>
+                                             ) : (
+                                                <button
+                                                   onClick={() => { setBidAmountInputVal(selectedLead.upworkBidAmount && selectedLead.upworkBidAmount !== '-' ? selectedLead.upworkBidAmount : ''); setEditingBidAmount(true); }}
+                                                   className="w-full text-left group"
+                                                >
+                                                   <p className="text-2xl font-black text-text-main group-hover:opacity-70 transition-opacity">
+                                                      {selectedLead.upworkBidAmount && selectedLead.upworkBidAmount !== '-' && selectedLead.upworkBidAmount !== '---' ? selectedLead.upworkBidAmount : <span className="text-text-muted text-sm font-bold">Click to enter</span>}
+                                                   </p>
+                                                   {bidConnects > 0 && (
+                                                      <div className="mt-2 space-y-0.5">
+                                                         <p className="text-[10px] font-bold text-text-muted">Cost: <span className="text-amber-400">${(bidConnects * 0.15).toFixed(2)}</span></p>
+                                                         {usdToInr && (
+                                                            <p className="text-[10px] font-bold text-text-muted">≈ <span className="text-emerald-400">₹{(bidConnects * 0.15 * usdToInr).toFixed(0)}</span></p>
+                                                         )}
+                                                      </div>
+                                                   )}
+                                                 </button>
+                                              )}
+                                           </div>
+                                          <div className="bg-brand-primary/5 p-5 rounded-3xl border border-brand-primary/20 shadow-sm col-span-1 flex flex-col justify-center relative overflow-hidden group/total">
+                                             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover/total:opacity-100 transition-opacity">
+                                                <div className={`w-1.5 h-1.5 rounded-full bg-brand-primary ${showInrTotal ? 'opacity-100' : 'opacity-30'}`}></div>
+                                             </div>
+                                             <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest mb-3 opacity-70">Total Spent</p>
+                                             <div className="relative h-8">
+                                                {!showInrTotal ? (
+                                                   <p key="usd" className="text-2xl font-black text-white absolute inset-0 animate-in fade-in duration-700">
+                                                      ${totalUsd.toFixed(2)}
+                                                   </p>
+                                                ) : (
+                                                   <p key="inr" className="text-2xl font-black text-emerald-400 absolute inset-0 animate-in fade-in duration-700">
+                                                      ₹{totalInr ? totalInr.toFixed(0) : '---'}
+                                                   </p>
+                                                )}
+                                             </div>
+                                          </div>
+                                          <div className="bg-bg-card p-5 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/40 transition-colors col-span-1">
+                                             <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-3 opacity-50">Job Status</p>
+                                             <div className="relative">
+                                                <button 
+                                                  onClick={() => setActiveDropdown(activeDropdown === 'upwork-status' ? null : 'upwork-status')}
+                                                  className="w-full flex items-center justify-between bg-bg-main/50 px-4 py-2.5 rounded-xl border border-border-main hover:border-brand-primary/40 transition-all text-sm font-black text-text-main group"
+                                                >
+                                                  <span>{selectedLead.upworkJobStatus || 'Open'}</span>
+                                                  <ChevronRight size={16} className={`text-brand-primary transition-transform duration-300 ${activeDropdown === 'upwork-status' ? 'rotate-90' : ''}`} />
+                                                </button>
+                                                
+                                                {activeDropdown === 'upwork-status' && (
+                                                  <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[110] py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                                     {['Open', 'Closed'].map((status) => (
+                                                        <button
+                                                          key={status}
+                                                          onClick={() => {
+                                                             updateUpworkJobStatus(selectedLead.id, status);
+                                                             setActiveDropdown(null);
+                                                          }}
+                                                          className={`w-full px-5 py-3 text-left text-xs font-bold transition-colors hover:bg-brand-primary/10 ${
+                                                             (selectedLead.upworkJobStatus || 'Open') === status 
+                                                                ? 'text-brand-primary bg-brand-primary/5' 
+                                                                : 'text-text-muted hover:text-text-main'
+                                                          }`}
+                                                        >
+                                                          {status}
+                                                        </button>
+                                                     ))}
+                                                  </div>
+                                                )}
+                                             </div>
+                                          </div>
+                                          <div className="bg-bg-card p-5 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/40 transition-colors col-span-1">
+                                             <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-3 opacity-50">Outcome</p>
+                                             <div className="relative">
+                                                <button 
+                                                  onClick={() => setActiveDropdown(activeDropdown === 'upwork-outcome' ? null : 'upwork-outcome')}
+                                                  className="w-full flex items-center justify-between bg-bg-main/50 px-4 py-2.5 rounded-xl border border-border-main hover:border-brand-primary/40 transition-all text-sm font-black text-text-main group"
+                                                >
+                                                  <span className={
+                                                    selectedLead.upworkOutcome === 'Got it' ? 'text-emerald-400' : 
+                                                    selectedLead.upworkOutcome === "Didn't get it" ? 'text-rose-400' : ''
+                                                  }>
+                                                    {selectedLead.upworkOutcome || 'Pending'}
+                                                  </span>
+                                                  <ChevronRight size={16} className={`text-brand-primary transition-transform duration-300 ${activeDropdown === 'upwork-outcome' ? 'rotate-90' : ''}`} />
+                                                </button>
+                                                
+                                                {activeDropdown === 'upwork-outcome' && (
+                                                  <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[110] py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                                     {['Pending', 'Got it', "Didn't get it"].map((outcome) => (
+                                                        <button
+                                                          key={outcome}
+                                                          onClick={() => {
+                                                             updateUpworkOutcome(selectedLead.id, outcome);
+                                                             setActiveDropdown(null);
+                                                          }}
+                                                          className={`w-full px-5 py-3 text-left text-xs font-bold transition-colors hover:bg-brand-primary/10 ${
+                                                             (selectedLead.upworkOutcome || 'Pending') === outcome 
+                                                                ? 'text-brand-primary bg-brand-primary/5' 
+                                                                : 'text-text-muted hover:text-text-main'
+                                                          }`}
+                                                        >
+                                                          {outcome}
+                                                        </button>
+                                                     ))}
+                                                  </div>
+                                                )}
+                                             </div>
+                                          </div>
+                                       </>
+                                    );
+                                 })()}
+                                 {selectedLead.source === 'Linkedin' && (
+                                    <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors relative">
+                                       <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Accepted Status</p>
+                                       <div className="relative">
+                                          <button 
+                                          onClick={() => setActiveDropdown(activeDropdown === 'modal-accepted' ? null : 'modal-accepted')}
+                                          className="w-full flex items-center justify-between bg-bg-main/50 px-4 py-2.5 rounded-xl border border-border-main hover:border-brand-primary/40 transition-all text-sm font-black text-text-main group"
+                                          >
+                                          <span>{selectedLead.isAccepted || 'No'}</span>
+                                          <ChevronRight size={16} className={`text-brand-primary transition-transform duration-300 ${activeDropdown === 'modal-accepted' ? 'rotate-90' : ''}`} />
+                                          </button>
+                                          
+                                          {activeDropdown === 'modal-accepted' && (
+                                          <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[110] py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                             {['Yes', 'No', 'Page Not Found'].map((status) => (
+                                                <button
+                                                key={status}
+                                                onClick={() => {
+                                                   updateLeadAcceptedStatus(selectedLead.id, status);
+                                                   setActiveDropdown(null);
+                                                }}
+                                                className={`w-full px-5 py-3 text-left text-xs font-bold transition-colors hover:bg-brand-primary/10 ${
+                                                   selectedLead.isAccepted === status 
                                                       ? 'text-brand-primary bg-brand-primary/5' 
                                                       : 'text-text-muted hover:text-text-main'
-                                                  }`}
+                                                }`}
                                                 >
-                                                  {acc}
+                                                {status}
                                                 </button>
-                                              ))}
-                                           </div>
-                                        </div>
-                                      )}
-                                   </div>
-                                 ) : (
-                                   <p className="text-sm font-black text-text-main ml-1">Global Meta Pool</p>
+                                             ))}
+                                          </div>
+                                          )}
+                                       </div>
+                                    </div>
                                  )}
                               </div>
-                              {selectedLead.source === 'Linkedin' && (
-                                <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm hover:border-brand-primary/30 transition-colors relative">
-                                   <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Accepted Status</p>
-                                   <div className="relative">
-                                      <button 
-                                        onClick={() => setActiveDropdown(activeDropdown === 'modal-accepted' ? null : 'modal-accepted')}
-                                        className="w-full flex items-center justify-between bg-bg-main/50 px-4 py-2.5 rounded-xl border border-border-main hover:border-brand-primary/40 transition-all text-sm font-black text-text-main group"
-                                      >
-                                        <span>{selectedLead.isAccepted || 'No'}</span>
-                                        <ChevronRight size={16} className={`text-brand-primary transition-transform duration-300 ${activeDropdown === 'modal-accepted' ? 'rotate-90' : ''}`} />
-                                      </button>
-                                      
-                                      {activeDropdown === 'modal-accepted' && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[110] py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                           {['Yes', 'No', 'Page Not Found'].map((status) => (
-                                             <button
-                                               key={status}
-                                               onClick={() => {
-                                                 updateLeadAcceptedStatus(selectedLead.id, status);
-                                                 setActiveDropdown(null);
-                                               }}
-                                               className={`w-full px-5 py-3 text-left text-xs font-bold transition-colors hover:bg-brand-primary/10 ${
-                                                 selectedLead.isAccepted === status 
-                                                   ? 'text-brand-primary bg-brand-primary/5' 
-                                                   : 'text-text-muted hover:text-text-main'
-                                               }`}
-                                             >
-                                               {status}
-                                             </button>
-                                           ))}
-                                        </div>
-                                      )}
-                                   </div>
-                                </div>
-                              )}
                            </div>
-                        </div>
-
-                        {selectedLead.source === 'Upwork' && (
-                          <div className="animate-in slide-in-from-bottom-4 duration-500">
-                             <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-6 flex items-center gap-4">
-                                BIDDING INTEL
-                                <div className="h-px bg-brand-primary/20 flex-1"></div>
-                             </h4>
-                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm flex flex-col items-center justify-center hover:border-brand-primary/30 transition-colors">
-                                   <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50 text-center">Connects Consumed</p>
-                                   <p className="text-xl font-black text-brand-primary">{selectedLead.upworkConnects}</p>
-                                </div>
-                                <div 
-                                  onClick={() => setIsJobTypeExpanded(!isJobTypeExpanded)}
-                                  className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm cursor-pointer hover:border-brand-primary/50 transition-all group"
-                                >
-                                   <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50">Job Classification</p>
-                                   <p className={`text-sm font-bold text-text-main ${isJobTypeExpanded ? '' : 'truncate max-w-[150px]'}`}>
-                                     {selectedLead.upworkJobType}
-                                   </p>
-                                   {!isJobTypeExpanded && (selectedLead.upworkJobType || '').length > 20 && (
-                                     <span className="text-[8px] font-black text-brand-primary uppercase tracking-widest mt-1 block opacity-0 group-hover:opacity-100 transition-opacity">Click to Expand</span>
-                                   )}
-                                </div>
-                                <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm flex flex-col items-center justify-center hover:border-brand-primary/30 transition-colors">
-                                   <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50 text-center">Amount Quoted</p>
-                                   <p className="text-xl font-black text-emerald-500">{selectedLead.upworkAmountQuoted}</p>
-                                </div>
-                                <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm flex flex-col items-center justify-center hover:border-brand-primary/30 transition-colors">
-                                   <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50 text-center">Bid Amount</p>
-                                   <p className="text-xl font-black text-text-main">{selectedLead.upworkBidAmount}</p>
-                                </div>
-                                <div className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm flex flex-col items-center justify-center hover:border-brand-primary/30 transition-colors">
-                                   <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 opacity-50 text-center">Apply Date</p>
-                                   <p className="text-xl font-black text-brand-primary">{selectedLead.upworkApplyDate}</p>
-                                </div>
-                             </div>
-                          </div>
                         )}
+
+
+
+
                         {selectedLead.images && selectedLead.images.length > 0 && (
                           <div>
                             <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-6 flex items-center gap-4">
@@ -3687,86 +5473,143 @@ const App = () => {
                           </div>
                         )}
                         {/* Last Conversation Summary Section */}
-                        <div>
-                           <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-6 flex items-center justify-between gap-4">
-                              <span className="flex items-center gap-4">
-                                LAST CONVERSATION SUMMARY
-                                <div className="h-px bg-brand-primary/20 w-48"></div>
-                              </span>
-                              <div className="flex items-center gap-3">
-                                {!isEditingSummary ? (
-                                  <button 
+                        {!window.location.pathname.includes('/pipeline') && (
+                           <div>
+                              <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-6 flex items-center justify-between gap-4">
+                                 <span className="flex items-center gap-4">
+                                 LAST CONVERSATION SUMMARY
+                                 <div className="h-px bg-brand-primary/20 w-48"></div>
+                                 </span>
+                                 <div className="flex items-center gap-3">
+                                 {!isEditingSummary ? (
+                                    <button 
+                                       onClick={() => {
+                                       setTempSummary(selectedLead.rawData['Last conversation'] || selectedLead.rawData['last_conversation'] || selectedLead.rawData['Last Conversation'] || '');
+                                       setIsEditingSummary(true);
+                                       }}
+                                       className="text-[10px] bg-brand-primary/10 text-brand-primary px-4 py-1.5 rounded-full border border-brand-primary/20 hover:bg-brand-primary hover:text-white transition-all font-black"
+                                    >
+                                       MODIFY SUMMARY
+                                    </button>
+                                 ) : (
+                                    <div className="flex items-center gap-2">
+                                       <button 
+                                       onClick={() => updateLeadSummary(selectedLead.id, tempSummary)}
+                                       className="text-[10px] bg-emerald-500/10 text-emerald-500 px-4 py-1.5 rounded-full border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all font-black"
+                                       >
+                                       OK
+                                       </button>
+                                       <button 
+                                       onClick={() => setIsEditingSummary(false)}
+                                       className="text-[10px] bg-rose-500/10 text-rose-500 px-4 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all font-black"
+                                       >
+                                       ESC
+                                       </button>
+                                    </div>
+                                 )}
+                                 <button 
                                     onClick={() => {
-                                      setTempSummary(selectedLead.rawData['Last conversation'] || selectedLead.rawData['last_conversation'] || selectedLead.rawData['Last Conversation'] || '');
-                                      setIsEditingSummary(true);
+                                       if(window.confirm('Erase all conversation history for this lead?')) {
+                                       updateLeadSummary(selectedLead.id, '');
+                                       }
                                     }}
-                                    className="text-[10px] bg-brand-primary/10 text-brand-primary px-4 py-1.5 rounded-full border border-brand-primary/20 hover:bg-brand-primary hover:text-white transition-all font-black"
-                                  >
-                                    MODIFY SUMMARY
-                                  </button>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <button 
-                                      onClick={() => updateLeadSummary(selectedLead.id, tempSummary)}
-                                      className="text-[10px] bg-emerald-500/10 text-emerald-500 px-4 py-1.5 rounded-full border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all font-black"
-                                    >
-                                      OK
-                                    </button>
-                                    <button 
-                                      onClick={() => setIsEditingSummary(false)}
-                                      className="text-[10px] bg-rose-500/10 text-rose-500 px-4 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all font-black"
-                                    >
-                                      ESC
-                                    </button>
-                                  </div>
-                                )}
-                                <button 
-                                  onClick={() => {
-                                    if(window.confirm('Erase all conversation history for this lead?')) {
-                                      updateLeadSummary(selectedLead.id, '');
-                                    }
-                                  }}
-                                  className="text-[10px] bg-rose-500/5 text-rose-500/50 px-4 py-1.5 rounded-full border border-rose-500/10 hover:bg-rose-500 hover:text-white transition-all font-black opacity-60 hover:opacity-100"
-                                >
-                                  CLEAR
-                                </button>
-                              </div>
-                           </h4>
-                           {isEditingSummary ? (
-                             <textarea 
-                               autoFocus
-                               value={tempSummary}
-                               onChange={(e) => setTempSummary(e.target.value)}
-                               className="w-full h-24 bg-bg-main p-6 rounded-3xl border-2 border-brand-primary/50 text-text-main font-bold outline-none focus:shadow-[0_0_20px_rgba(159,212,138,0.2)] transition-all resize-none custom-scrollbar"
-                               placeholder="Enter summary..."
-                             />
-                           ) : (
-                             <div 
-                               onClick={() => {
-                                 setTempSummary(selectedLead.rawData['Last conversation'] || selectedLead.rawData['last_conversation'] || selectedLead.rawData['Last Conversation'] || '');
-                                 setIsEditingSummary(true);
-                               }}
-                               className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm group relative cursor-pointer hover:border-brand-primary/50 transition-all active:scale-[0.99]"
-                             >
-                                <p className="text-sm font-bold text-text-main leading-relaxed">
-                                  {selectedLead.rawData['Last conversation'] || selectedLead.rawData['last_conversation'] || selectedLead.rawData['Last Conversation'] || 'No conversation summary recorded.'}
-                                </p>
-                                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
-                                  <span className="text-[8px] font-black text-brand-primary uppercase tracking-widest">Click to Edit</span>
-                                  <MessageSquare size={14} className="text-brand-primary/40" />
-                                </div>
-                             </div>
-                           )}
-                        </div>
-                        {selectedLead.source !== 'Upwork' && (
+                                    className="text-[10px] bg-rose-500/5 text-rose-500/50 px-4 py-1.5 rounded-full border border-rose-500/10 hover:bg-rose-500 hover:text-white transition-all font-black opacity-60 hover:opacity-100"
+                                 >
+                                    CLEAR
+                                 </button>
+                                 </div>
+                              </h4>
+                              {isEditingSummary ? (
+                                 <textarea 
+                                 autoFocus
+                                 value={tempSummary}
+                                 onChange={(e) => setTempSummary(e.target.value)}
+                                 className="w-full h-24 bg-bg-main p-6 rounded-3xl border-2 border-brand-primary/50 text-text-main font-bold outline-none focus:shadow-[0_0_20px_rgba(159,212,138,0.2)] transition-all resize-none custom-scrollbar"
+                                 placeholder="Enter summary..."
+                                 />
+                              ) : (
+                                 <div 
+                                 onClick={() => {
+                                    setTempSummary(selectedLead.rawData['Last conversation'] || selectedLead.rawData['last_conversation'] || selectedLead.rawData['Last Conversation'] || '');
+                                    setIsEditingSummary(true);
+                                 }}
+                                 className="bg-bg-card p-6 rounded-3xl border border-border-main shadow-sm group relative cursor-pointer hover:border-brand-primary/50 transition-all active:scale-[0.99]"
+                                 >
+                                    <p className="text-sm font-bold text-text-main leading-relaxed">
+                                    {selectedLead.rawData['Last conversation'] || selectedLead.rawData['last_conversation'] || selectedLead.rawData['Last Conversation'] || 'No conversation summary recorded.'}
+                                    </p>
+                                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                                    <span className="text-[8px] font-black text-brand-primary uppercase tracking-widest">Click to Edit</span>
+                                    <MessageSquare size={14} className="text-brand-primary/40" />
+                                    </div>
+                                 </div>
+                              )}
+                           </div>
+                        )}
+
+                        {selectedLead.source !== 'Upwork' && !window.location.pathname.includes('/pipeline') && (
                          <div className="mt-12">
                             <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-10 flex items-center justify-center gap-4">
                                 <div className="h-px bg-brand-primary/20 w-16"></div>
-                                OPERATIONAL PROGRESS TRACKER
+                                {window.location.pathname.includes('/funnel') ? 'FOLLOW-UP PIPELINE' : 'OPERATIONAL PROGRESS TRACKER'}
                                 <div className="h-px bg-brand-primary/20 w-16"></div>
                             </h4>
                             <div className="bg-bg-card p-10 rounded-[40px] border border-border-main shadow-inner mb-12">
-                               <LeadStatusTracker lead={selectedLead} />
+                               {window.location.pathname.includes('/funnel') && (selectedLead.source === 'Meta' || selectedLead.source === 'Linkedin') ? (
+                                 <div className="flex items-center justify-center gap-4">
+                                   {['1', '2', '3', '4'].map((num) => {
+                                     const stage = `FU${num}`;
+                                     const rawDate = selectedLead.rawData?.[`FU - ${num}`] || 
+                                                     selectedLead.rawData?.[`FU-${num}`] || 
+                                                     selectedLead.rawData?.[`FU ${num}`] || 
+                                                     selectedLead.rawData?.[stage] || '—';
+                                     
+                                     const isDone = rawDate.toLowerCase().includes('done');
+                                     const displayDate = rawDate.replace(/done/gi, '').trim();
+                                     
+                                     const comment = selectedLead.rawData?.[`FU - ${num} Comment`] || 
+                                                     selectedLead.rawData?.[`FU-${num} Comment`] || 
+                                                     selectedLead.rawData?.[`FU ${num} Comment`] || 
+                                                     selectedLead.rawData?.[`${stage}_comment`] || 
+                                                     selectedLead.rawData?.[`${stage} Comment`] || '';
+                                     
+                                     return (
+                                       <div key={stage} className="relative group/tooltip flex-1 max-w-[160px]">
+                                         <div className={`flex flex-col items-center justify-center p-6 border rounded-[24px] transition-all cursor-help ${
+                                           isDone 
+                                             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.15)]' 
+                                             : displayDate !== '—'
+                                               ? 'bg-white/5 border-white/10 text-text-main hover:border-brand-primary/50'
+                                               : 'bg-white/[0.02] border-white/5 text-text-muted opacity-20'
+                                         }`}>
+                                           <div className="flex items-center gap-2 mb-2">
+                                             {isDone ? <CheckCircle2 size={12} /> : <Calendar size={12} className="opacity-40" />}
+                                             <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-40">{stage}</span>
+                                           </div>
+                                           <span className="text-sm font-black uppercase tracking-tight">
+                                             {displayDate || '—'}
+                                           </span>
+                                         </div>
+                                         
+                                         {comment && (
+                                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-64 p-5 bg-bg-card border border-border-main rounded-[24px] shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[110] backdrop-blur-2xl">
+                                             <div className="flex items-center gap-2 mb-3 border-b border-border-main/50 pb-3">
+                                               <Zap size={12} className="text-brand-primary" />
+                                               <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">{stage} Intelligence</span>
+                                             </div>
+                                             <p className="text-xs text-text-main leading-relaxed font-medium">
+                                               {comment}
+                                             </p>
+                                             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-bg-card border-r border-b border-border-main rotate-45"></div>
+                                           </div>
+                                         )}
+                                       </div>
+                                     );
+                                   })}
+                                 </div>
+                               ) : (
+                                 <LeadStatusTracker lead={selectedLead} />
+                               )}
                             </div>
 
                             <h4 className="text-[10px] font-black text-brand-primary uppercase tracking-[0.3em] mb-10 flex items-center justify-center gap-4">
@@ -3853,7 +5696,7 @@ const App = () => {
                                                 <div key={status} className="relative group/btn">
                                                   <button 
                                                     onClick={() => {
-                                                      if (isDnpType) {
+                                                      if (status === 'MOVE TO PIPELINE' || isDnpType) {
                                                         setActiveDnpComment(status);
                                                         setDnpCommentText('');
                                                       } else {
@@ -3885,17 +5728,27 @@ const App = () => {
                                                     <div className="absolute inset-0 z-[60] animate-in zoom-in-95 duration-200">
                                                       <input 
                                                         autoFocus
-                                                        placeholder="DNP Note..."
+                                                        placeholder={status === 'MOVE TO PIPELINE' ? "Pipeline Comment..." : "DNP Note..."}
                                                         value={dnpCommentText}
                                                         onChange={(e) => setDnpCommentText(e.target.value)}
                                                         onKeyDown={(e) => {
                                                           if (e.key === 'Enter') {
-                                                            submitDnpComment(selectedLead, status, dnpCommentText);
+                                                            if (status === 'MOVE TO PIPELINE') {
+                                                              fetch('https://n8n.srv1010832.hstgr.cloud/webhook/8ac97b11-acf4-45f1-ab0a-e40d68ee214b', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ ...selectedLead, lead_source: selectedLead.source, pipeline_comment: dnpCommentText })
+                                                              }).catch(err => console.error('Webhook failed', err));
+                                                              updateLeadNotes(selectedLead.id, status);
+                                                              setActiveDnpComment(null);
+                                                            } else {
+                                                              submitDnpComment(selectedLead, status, dnpCommentText);
+                                                            }
                                                           } else if (e.key === 'Escape') {
                                                             setActiveDnpComment(null);
                                                           }
                                                         }}
-                                                        className="w-full h-full bg-[#0b141a] text-white text-[10px] font-black px-4 py-2 rounded-xl border-2 border-[#25d366] outline-none shadow-2xl uppercase placeholder:text-white/20"
+                                                        className="w-full h-full bg-[#000000] text-white text-[10px] font-black px-4 py-2 rounded-xl border-2 border-[#25d366] outline-none shadow-2xl uppercase placeholder:text-white/20"
                                                       />
                                                     </div>
                                                   )}
@@ -3911,14 +5764,6 @@ const App = () => {
                           </div>
                         )}
                   </div>
-               </div>
-               <div className="p-10 border-t border-border-main bg-bg-main/50 flex justify-end gap-4">
-                  <button 
-                    onClick={() => { setSelectedLead(null); setActiveDropdown(null); setIsJobTypeExpanded(false); }}
-                    className="px-12 py-5 bg-text-main text-bg-main rounded-[20px] font-black uppercase tracking-[0.2em] text-[10px] hover:opacity-90 transition-all shadow-2xl shadow-text-main/20"
-                  >
-                    TERMINATE VIEW
-                  </button>
                </div>
             </div>
          </div>
@@ -3994,7 +5839,7 @@ const ChatModal = ({ lead, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-120 flex items-center justify-center p-4">
-      <div className="bg-[#0b141a] w-full max-w-3xl h-[90vh] rounded-[32px] shadow-2xl overflow-hidden flex flex-col border border-white/5 animate-in zoom-in duration-300">
+      <div className="bg-[#000000] w-full max-w-3xl h-[90vh] rounded-[32px] shadow-2xl overflow-hidden flex flex-col border border-white/5 animate-in zoom-in duration-300">
         <div className="bg-[#202c33] p-6 flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-6">
             <button onClick={onClose} className="text-[#aebac1] hover:text-white transition-colors">
@@ -4014,9 +5859,9 @@ const ChatModal = ({ lead, onClose }) => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#0b141a] custom-scrollbar" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundBlendMode: 'overlay', backgroundSize: 'cover' }}>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#000000] custom-scrollbar" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundBlendMode: 'overlay', backgroundSize: 'cover' }}>
           <div className="flex justify-center mb-6">
-            <span className="bg-[#182229] text-[#8696a0] px-4 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider shadow-sm">Encryption Validated</span>
+            <span className="bg-[#0a0a0a] text-[#8696a0] px-4 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider shadow-sm">Encryption Validated</span>
           </div>
 
           {messages.map((msg) => (
@@ -4040,7 +5885,7 @@ const ChatModal = ({ lead, onClose }) => {
            <div className="flex-1 bg-[#2a3942] rounded-xl px-4 py-2.5 text-[#aebac1] text-xs font-medium border border-white/5 opacity-50 select-none">
               History view only • Read mode active
            </div>
-           <div className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center text-white shadow-lg opacity-50">
+           <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white shadow-lg opacity-50">
               <Send size={20} />
            </div>
         </div>

@@ -57,39 +57,39 @@ const StyledWrapper = styled.div`
   }
 
   .cell:nth-child(1) {
-    --cell-color: #00FF87;
+    --cell-color: #0EA5A4;
   }
 
   .cell:nth-child(2) {
-    --cell-color: #0CFD95;
+    --cell-color: #0FA9A8;
   }
 
   .cell:nth-child(3) {
-    --cell-color: #17FBA2;
+    --cell-color: #11ADAD;
   }
 
   .cell:nth-child(4) {
-    --cell-color: #23F9B2;
+    --cell-color: #13B1B1;
   }
 
   .cell:nth-child(5) {
-    --cell-color: #30F7C3;
+    --cell-color: #15B5B5;
   }
 
   .cell:nth-child(6) {
-    --cell-color: #3DF5D4;
+    --cell-color: #17B9B9;
   }
 
   .cell:nth-child(7) {
-    --cell-color: #45F4DE;
+    --cell-color: #19BDBD;
   }
 
   .cell:nth-child(8) {
-    --cell-color: #53F1F0;
+    --cell-color: #1BC1C1;
   }
 
   .cell:nth-child(9) {
-    --cell-color: #60EFFF;
+    --cell-color: #1DC5C5;
   }
 
   /*Animation*/

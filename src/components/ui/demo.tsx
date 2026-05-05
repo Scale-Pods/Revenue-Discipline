@@ -1,9 +1,13 @@
-import Loader from "@/components/ui/loader-4";
+import { LiquidButton } from "@/components/ui/liquid-glass-button";
 
 export default function DemoOne() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#0b141a]">
-      <Loader />
-    </div>
-  );
+    <> 
+      <div className="relative h-[200px] w-[800px] bg-slate-900 rounded-xl flex items-center justify-center"> 
+        <LiquidButton className="z-10 text-white border border-white/20">
+          Liquid Glass
+        </LiquidButton> 
+      </div>
+    </>
+  )
 }

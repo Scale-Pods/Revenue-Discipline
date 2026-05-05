@@ -27,13 +27,13 @@ class ErrorBoundary extends React.Component {
       return (
         <div style={{
           position: 'fixed', inset: 0,
-          background: '#0b141a',
+          background: '#000000',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '2rem', fontFamily: 'system-ui, sans-serif', zIndex: 99999
         }}>
           <div style={{
             maxWidth: 520, width: '100%',
-            background: '#182229',
+            background: '#0a0a0a',
             borderRadius: 28, padding: '3rem',
             border: '1px solid rgba(255,255,255,0.08)',
             boxShadow: '0 0 80px rgba(0,0,0,0.5)',
@@ -59,7 +59,7 @@ class ErrorBoundary extends React.Component {
             </p>
 
             <div style={{
-              background: '#0b141a', borderRadius: 12,
+              background: '#000000', borderRadius: 12,
               padding: '1rem', marginBottom: 24, border: '1px solid rgba(255,255,255,0.05)',
               textAlign: 'left', maxHeight: 120, overflowY: 'auto'
             }}>
@@ -78,7 +78,7 @@ class ErrorBoundary extends React.Component {
                 onClick={() => window.location.reload()}
                 style={{
                   flex: 1, padding: '14px 24px',
-                  background: '#9FD48A', color: '#0b141a',
+                  background: '#0EA5A4', color: '#000000',
                   borderRadius: 14, border: 'none',
                   fontWeight: 900, fontSize: 11,
                   textTransform: 'uppercase', letterSpacing: '0.15em',
