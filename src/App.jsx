@@ -33,7 +33,8 @@ import {
   ExternalLink,
   LogIn,
   Zap,
-  PencilLine
+  PencilLine,
+  Clock
 } from 'lucide-react';
 import { 
   BrowserRouter, 
@@ -1768,6 +1769,43 @@ const LeadModal = ({ onClose, onSubmit, formData, setFormData, activeSource, isS
                   />
                 </div>
                 <div>
+                  <label className="block text-[8px] font-black text-brand-primary uppercase tracking-widest mb-2 ml-1 flex justify-between items-center">
+                    <span className="flex items-center gap-1"><Clock size={8} /> Apply Time</span>
+                    <div className="flex bg-bg-main border border-brand-primary/20 rounded-lg overflow-hidden">
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, upworkTimeType: 'Now'})}
+                        className={`px-1.5 py-0.5 text-[6px] font-black transition-all ${formData.upworkTimeType === 'Now' ? 'bg-brand-primary text-white' : 'text-brand-primary/60 hover:bg-brand-primary/5'}`}
+                      >
+                        NOW
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, upworkTimeType: 'Other'})}
+                        className={`px-1.5 py-0.5 text-[6px] font-black transition-all ${formData.upworkTimeType === 'Other' ? 'bg-brand-primary text-white' : 'text-brand-primary/60 hover:bg-brand-primary/5'}`}
+                      >
+                        OTHER
+                      </button>
+                    </div>
+                  </label>
+                  {formData.upworkTimeType === 'Other' ? (
+                    <input
+                      type="time"
+                      className="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
+                      value={formData.upworkApplyTime}
+                      onChange={e => setFormData({...formData, upworkApplyTime: e.target.value})}
+                    />
+                  ) : (
+                    <div className="w-full px-3 py-2 rounded-xl border border-brand-primary/10 bg-bg-main/50 text-[10px] font-bold text-text-muted italic flex items-center gap-1.5 h-[34px]">
+                      <div className="w-1 h-1 bg-brand-primary rounded-full animate-pulse"></div>
+                      Auto-sync
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="block text-[8px] font-black text-brand-primary uppercase tracking-widest mb-2 ml-1">Connects Used</label>
                   <input
                     type="number"
@@ -1775,6 +1813,16 @@ const LeadModal = ({ onClose, onSubmit, formData, setFormData, activeSource, isS
                     className="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
                     value={formData.upworkConnects}
                     onChange={e => setFormData({...formData, upworkConnects: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black text-brand-primary uppercase tracking-widest mb-2 ml-1">Amount Quoted</label>
+                  <input
+                    type="text"
+                    placeholder="$500"
+                    className="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
+                    value={formData.upworkAmountQuoted}
+                    onChange={e => setFormData({...formData, upworkAmountQuoted: e.target.value})}
                   />
                 </div>
               </div>
@@ -1799,19 +1847,6 @@ const LeadModal = ({ onClose, onSubmit, formData, setFormData, activeSource, isS
                   value={formData.upworkJobType}
                   onChange={e => setFormData({...formData, upworkJobType: e.target.value})}
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[8px] font-black text-brand-primary uppercase tracking-widest mb-2 ml-1">Amount Quoted</label>
-                  <input
-                    type="text"
-                    placeholder="$500"
-                    className="w-full px-3 py-2 rounded-xl border border-brand-primary/20 bg-bg-main text-xs font-bold text-text-main outline-none"
-                    value={formData.upworkAmountQuoted}
-                    onChange={e => setFormData({...formData, upworkAmountQuoted: e.target.value})}
-                  />
-                </div>
               </div>
 
               <div className="pt-2">
@@ -2127,7 +2162,9 @@ const App = () => {
     employeeSize: '11-50',
     linkedInAccount: 'All Accounts',
     additionalInfo: '',
-    isAppliedWithin10Mins: false
+    isAppliedWithin10Mins: false,
+    upworkApplyTime: '',
+    upworkTimeType: 'Now'
   });
 
   const today = new Date().toLocaleDateString('en-CA'); // Gets YYYY-MM-DD in local time accurately
@@ -2663,6 +2700,9 @@ const App = () => {
         const rawPayload = {
           name: formData.name || formData.upworkJobType || 'Upwork Lead',
           upworkApplyDate: formData.upworkApplyDate,
+          upworkApplyTime: formData.upworkTimeType === 'Now' 
+            ? new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) 
+            : formData.upworkApplyTime,
           upworkUrl: formData.upworkUrl,
           upworkConnects: formData.upworkConnects,
           upworkJobType: formData.upworkJobType,
@@ -2755,7 +2795,9 @@ const App = () => {
         companyUrl: '',
         employeeSize: '11-50',
         linkedInAccount: 'All Accounts',
-        additionalInfo: ''
+        additionalInfo: '',
+        upworkApplyTime: '',
+        upworkTimeType: 'Now'
       });
 
     } catch (error) {
