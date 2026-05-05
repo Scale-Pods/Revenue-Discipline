@@ -44,7 +44,7 @@ const Login = () => {
             <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-brand-primary/20 shadow-inner">
               <LogIn className="text-brand-primary" size={32} />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Sales Tracker</h1>
+            <h1 className="text-3xl font-black text-white tracking-tighter mb-2">Revenue Discipline</h1>
             <p className="text-slate-400 text-sm font-medium uppercase tracking-widest">Command Center Access</p>
           </div>
 
@@ -97,12 +97,7 @@ const Login = () => {
               </button>
             </form>
 
-            <button 
-              onClick={() => setIsLogin(!isLogin)}
-              className="w-full text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
-            >
-              {isLogin ? "Need a new account? Register" : "Already have access? Login"}
-            </button>
+
           </div>
         </div>
         
